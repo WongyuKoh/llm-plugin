@@ -20,17 +20,46 @@ python3 plugins/t3-guide/build_theme.py   # theme.json, preview.html 생성
 
 명령을 추가하거나 바꾸면 `build_theme.py`의 `GROUPS`를 고치고 다시 만드세요.
 
-## 가이드북 버튼(프로젝트 스크립트)
+## 가이드북 메뉴 막대 아이콘
 
-카드 안내는 그림이라 누를 수 없습니다. 누르는 가이드북은 `/guide`로 대화에 띄우거나, T3 프로젝트 스크립트 버튼으로 오른쪽 미리보기 패널에 엽니다.
+카드 안내는 그림이라 누를 수 없습니다. 누르는 가이드북은 `/guide`로 대화에 띄우거나, 맥 메뉴 막대의 `📘 T3 스킬 가이드`를 눌러 화면 가운데의 창으로 엽니다. 메뉴 막대 항목을 다시 누르거나 Esc를 누르거나 다른 곳을 클릭하면 닫힙니다.
 
-T3 화면은 프로젝트 스크립트를 서버 설정(`~/.t3/userdata/settings.json`)의 `defaultProjectScripts`(모든 프로젝트 공통)와 `projectScriptOverrides`(프로젝트별)에서 읽습니다. 대화 도구 `t3_project_update`의 `scripts`로 넣은 값은 화면에 보이지 않았습니다(2026-11-25). 그래서 다음 스크립트를 `defaultProjectScripts`에 넣어 모든 프로젝트에 보이게 했습니다. 프로젝트에서 스크립트를 따로 추가하면 그 프로젝트는 별도 목록(`projectScriptOverrides`)을 쓰게 되어 공통 버튼이 빠질 수 있습니다.
+- 창은 앱을 활성화하지 않는 패널이라, 다른 앱을 앞에 둔 채로 바로 키보드 입력을 받습니다.
+- 메뉴 막대 항목은 macOS가 로그인할 때 켜는 별도 프로그램(LaunchAgent)이라 T3가 꺼져 있어도 동작합니다.
+- 창을 열 때마다 `guidebook.html`을 다시 읽으므로, 페이지를 고치면 다음에 열 때 반영됩니다.
 
-| 항목 | 값 |
+| 파일 | 역할 |
 |---|---|
-| 이름 | 📘 가이드북 |
-| 명령 | `python3 -m http.server 8777 --bind 127.0.0.1 --directory "$HOME/.claude/skills/guide"` |
-| 미리보기 | `http://127.0.0.1:8777/guidebook.html` 자동 열기 |
-| 실행 방식 | 계속 실행(async), 세션 정리 때 중지 |
+| `skills/guide/guide-window.js` | 창과 메뉴 막대 아이콘(JXA + WebKit). `--menubar`로 실행하면 계속 떠 있고, 옵션 없이 실행하면 창을 한 번 띄웁니다. |
+| `skills/guide/menubar.sh` | 로그인할 때 아이콘이 켜지도록 LaunchAgent(`local.llm-plugin.guide-menubar`)를 설치하거나 지웁니다. |
+| `skills/guide/open.sh` | 창을 한 번 띄웁니다. 띄우지 못하면 기본 브라우저로 엽니다. |
 
-8777 포트를 이미 쓰고 있으면 서버가 시작되지 않습니다. 버튼을 없애려면 `settings.json`에서 `defaultProjectScripts`를 지우고 T3를 다시 여세요.
+```sh
+sh skills/guide/menubar.sh install    # 켜기(로그인할 때마다 자동 실행)
+sh skills/guide/menubar.sh status     # 상태 확인
+sh skills/guide/menubar.sh uninstall  # 끄고 자동 실행 지우기
+```
+
+오류는 `~/Library/Logs/llm-plugin-guide-menubar.log`에 남습니다. LaunchAgent는 `~/.claude/skills/guide`의 파일을 실행합니다.
+
+### T3 버튼을 쓰지 않는 이유
+
+처음에는 T3 프로젝트 스크립트 버튼(`~/.t3/userdata/settings.json`의 `defaultProjectScripts`)으로 열었지만, 다음 문제가 있어 메뉴 막대 아이콘으로 바꿨습니다(2026-11-25). T3 0.1.11 앱 코드와 터미널 기록으로 확인한 내용입니다.
+
+- 프로젝트 스크립트를 실행하면 T3는 항상 아래 터미널을 열고 그 안에서 명령을 실행합니다. 이를 끄는 스크립트 항목이나 설정은 없습니다.
+- 버튼으로 연 창은 잠깐 떴다가 저절로 닫혔습니다. 터미널이 열리면서 포커스가 T3로 돌아간 것으로 보입니다.
+- T3는 쉬고 있는 터미널을 다시 쓰면서, 입력 줄에 남은 글자를 지우지 않고 그 뒤에 명령을 입력합니다. 남은 글자가 있으면 `command not found`로 실패합니다. 명령 앞에 Ctrl-U(`\u0015`)를 넣으면 막을 수 있습니다(zsh 기본 키 설정에서 확인).
+- 대화 도구 `t3_project_update`의 `scripts`로 넣은 버튼은 화면에 보이지 않았습니다. `settings.json`을 고치면 T3를 완전히 종료했다가 다시 열어야 반영됩니다.
+
+### 창 시험
+
+`guide-window.js`의 시험 옵션입니다. 저장소 최상위에서 실행합니다.
+
+```sh
+# 창을 띄우지 않고 스크롤 막대 폭을 잰다(0px이면 숨겨진 상태)
+osascript -l JavaScript skills/guide/guide-window.js "$PWD/skills/guide/guidebook.html" --check
+# 창을 3초 동안 띄우고 포커스 변화를 기록한다
+osascript -l JavaScript skills/guide/guide-window.js "$PWD/skills/guide/guidebook.html" --debug --quit-after=3
+# 메뉴 막대 아이콘을 4초 동안 띄우고, 1초에 창을 열고 2.5초에 닫는다
+osascript -l JavaScript skills/guide/guide-window.js "$PWD/skills/guide/guidebook.html" --menubar --debug --click-after=1,2.5 --quit-after=4
+```
