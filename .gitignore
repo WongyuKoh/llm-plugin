@@ -1,0 +1,8 @@
+# Machine-specific Claude configuration
+CLAUDE.local.md
+.claude/settings.local.json
+.cc-writes/
+
+# Python
+__pycache__/
+*.pyc
