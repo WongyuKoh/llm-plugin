@@ -8,7 +8,7 @@
 
 Claude가 이름을 제안하면 `/rename 제안한 이름`으로 실제 세션 이름을 정할 수 있습니다. 도구가 다른 세션에 접근할 수 없다면 실제 세션을 조회하거나 생성했다고 가정하지 않습니다.
 
-한국어 응답과 사실 기준 답변은 전역 지침(`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`)에도 넣었습니다. 특정 프로젝트에서 세션 목적과 응답 구조까지 항상 적용하려면 그 프로젝트의 `CLAUDE.md`에 다음을 추가하세요. `dev-flow`, `t3-session-workflow`와 명령은 T3 도구가 있는 세션에서만 동작합니다.
+한국어 응답, 사실 기준 답변, 스킬 안내(명령 없이 요청해도 맞는 스킬을 알리고 그 스킬로 진행)는 전역 지침(`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`)에도 넣었습니다. 특정 프로젝트에서 세션 목적과 응답 구조까지 항상 적용하려면 그 프로젝트의 `CLAUDE.md`에 다음을 추가하세요. `dev-flow`, `t3-session-workflow`와 명령은 T3 도구가 있는 세션에서만 동작합니다.
 
 ```markdown
 @~/.claude/skills/session-focus/SKILL.md
