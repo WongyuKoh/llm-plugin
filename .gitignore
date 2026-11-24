@@ -6,3 +6,6 @@ CLAUDE.local.md
 # Python
 __pycache__/
 *.pyc
+
+# Generated preview
+plugins/t3-guide/preview.html

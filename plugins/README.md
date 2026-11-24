@@ -6,5 +6,6 @@
 |---|---|
 | [`notify/`](notify/README.md) | 질문, 승인 요청, 할 일이 생기면 이 Mac과 휴대폰으로 알림 |
 | [`obsidian-note-inbox/`](obsidian-note-inbox/README.md) | Google Drive 수집 폴더의 Markdown을 Obsidian 수집함으로 가져오기 |
+| [`t3-guide/`](t3-guide/README.md) | T3 화면 오른쪽 스레드 정보 카드 아래에 명령 안내 표시 |
 
 Claude Code 플러그인 형식(`.claude-plugin`)은 쓰지 않습니다. 스킬은 저장소 루트의 `install.sh`로 개인 스킬 폴더에 연결합니다.
