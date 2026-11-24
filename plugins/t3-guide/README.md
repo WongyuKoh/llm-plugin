@@ -22,7 +22,9 @@ python3 plugins/t3-guide/build_theme.py   # theme.json, preview.html 생성
 
 ## 가이드북 버튼(프로젝트 스크립트)
 
-카드 안내는 그림이라 누를 수 없습니다. 누르는 가이드북은 `/guide`로 대화에 띄우거나, T3 프로젝트 스크립트 버튼으로 오른쪽 미리보기 패널에 엽니다. llm-plugin 프로젝트에는 다음 스크립트를 등록했습니다(2026-11-25).
+카드 안내는 그림이라 누를 수 없습니다. 누르는 가이드북은 `/guide`로 대화에 띄우거나, T3 프로젝트 스크립트 버튼으로 오른쪽 미리보기 패널에 엽니다.
+
+T3 화면은 프로젝트 스크립트를 서버 설정(`~/.t3/userdata/settings.json`)의 `defaultProjectScripts`(모든 프로젝트 공통)와 `projectScriptOverrides`(프로젝트별)에서 읽습니다. 대화 도구 `t3_project_update`의 `scripts`로 넣은 값은 화면에 보이지 않았습니다(2026-11-25). 그래서 다음 스크립트를 `defaultProjectScripts`에 넣어 모든 프로젝트에 보이게 했습니다. 프로젝트에서 스크립트를 따로 추가하면 그 프로젝트는 별도 목록(`projectScriptOverrides`)을 쓰게 되어 공통 버튼이 빠질 수 있습니다.
 
 | 항목 | 값 |
 |---|---|
@@ -31,4 +33,4 @@ python3 plugins/t3-guide/build_theme.py   # theme.json, preview.html 생성
 | 미리보기 | `http://127.0.0.1:8777/guidebook.html` 자동 열기 |
 | 실행 방식 | 계속 실행(async), 세션 정리 때 중지 |
 
-다른 프로젝트에 넣으려면 같은 값을 그 프로젝트 스크립트에 추가하세요. 8777 포트를 이미 쓰고 있으면 서버가 시작되지 않습니다.
+8777 포트를 이미 쓰고 있으면 서버가 시작되지 않습니다. 버튼을 없애려면 `settings.json`에서 `defaultProjectScripts`를 지우고 T3를 다시 여세요.
