@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""T3 Code 기본 테마 색을 그대로 쓰면서 스레드 정보 카드 아래에 명령 안내를 붙이는 테마를 만든다.
+"""T3 Code 기본 테마 색을 그대로 쓰면서 스레드 정보 카드 아래에 명령 안내 상자를 붙이는 테마를 만든다.
+
+안내 상자는 카드와 분리된 별도 상자이고, '내 명령' 묶음이 한 번에 보이는 높이로 고정해 상자 안에서 따로 스크롤된다.
+카드 안에 붙이면 카드의 하위 세션 목록(Lineage) 등이 밀려 보이지 않아서 패널(aside)에 붙인다.
 
 출력: 같은 폴더의 theme.json (t3_theme_set의 theme 값), preview.html (확인용 화면)
 명령을 바꾸면 GROUPS를 고치고 다시 실행한 뒤 theme.json을 T3 테마 `guide`로 적용한다.
@@ -109,10 +112,16 @@ def height():
     return sum(HEADER + ROW * len(rows) for _, _, rows in GROUPS) + 10
 
 
+def visible_height():
+    """안내 상자에 한 번에 보이는 높이: 첫 묶음('내 명령') 전체."""
+    return HEADER + ROW * len(GROUPS[0][2])
+
+
 def svg(colors, weight=400):
     parts, y = [], 0
-    for title, hint, rows in GROUPS:
-        parts.append('<line x1="0" y1="%.1f" x2="%d" y2="%.1f" stroke="%s"/>' % (y + 0.5, WIDTH, y + 0.5, colors['border']))
+    for index, (title, hint, rows) in enumerate(GROUPS):
+        if index:  # 첫 묶음 위 선은 상자 테두리와 겹치므로 그리지 않는다. 둥근 모서리 밖으로 나가지 않게 양끝을 줄인다.
+            parts.append('<line x1="12" y1="%.1f" x2="%d" y2="%.1f" stroke="%s"/>' % (y + 0.5, WIDTH - 12, y + 0.5, colors['border']))
         parts.append('<text x="18" y="%d" font-size="11.5" font-weight="500" fill="%s">%s</text>'
                      % (y + 20, colors['textMuted'], escape(title)))
         if hint:
@@ -128,8 +137,9 @@ def svg(colors, weight=400):
                 parts.append('<text x="%d" y="%d" font-size="12.5" text-anchor="end" fill="%s">%s</text>'
                              % (WIDTH - 18, y + 19.5, colors['textMuted'], escape(desc)))
             y += ROW
-    return ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" font-family="%s">%s</svg>'
-            % (WIDTH, height(), WIDTH, height(), escape(FONT, quote=True), ''.join(parts)))
+    # width/height 없이 viewBox만 두어 상자 너비에 맞춰 늘고 준다(높이는 비율대로).
+    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" font-family="%s">%s</svg>'
+            % (WIDTH, height(), escape(FONT, quote=True), ''.join(parts)))
 
 
 def data_uri(colors):
@@ -138,15 +148,30 @@ def data_uri(colors):
     return 'data:image/svg+xml;base64,' + base64.b64encode(svg(colors, weight).encode('utf-8')).decode('ascii')
 
 
+PANEL = '[data-thread-details-panel="inline"]'
+
+
 def css():
+    # 패널(aside)을 세로 flex로 바꿔 [카드][안내 상자]로 나눈다. 공간이 모자라면 카드가 줄고 카드 안에서 스크롤된다.
+    # 안내 상자(::after)는 content: url()의 그림이 상자보다 길어 상자 안에서 따로 스크롤된다.
+    # 스크롤 상자에 border-radius나 clip-path가 있으면 Chromium에서 휠 스크롤이 막혀서(Chrome 158 시험, 2026-11-25)
+    # 상자는 투명한 네모로 두고, 둥근 배경과 테두리는 같은 크기의 ::before를 뒤에 깔아 그린다.
     return '\n'.join([
-        '/* llm-plugin: 스레드 정보 카드 아래 명령 안내 (plugins/t3-guide/build_theme.py로 생성) */',
-        '[data-thread-details-card]::after {',
-        '  content: ""; display: block; flex-basis: 100%%; width: 100%%; aspect-ratio: %d / %d;' % (WIDTH, height()),
-        '  margin-top: 4px; background: no-repeat center top / 100% auto;',
+        '/* llm-plugin: 스레드 정보 카드 아래, 따로 스크롤되는 명령 안내 상자 (plugins/t3-guide/build_theme.py로 생성) */',
+        '%s { display: flex !important; flex-direction: column; gap: 8px; }' % PANEL,
+        '%s > [data-thread-details-card] { flex: 0 1 auto; min-height: 0; }' % PANEL,
+        '%s::after {' % PANEL,
+        '  display: block; flex: none; aspect-ratio: %d / %d;' % (WIDTH, visible_height()),
+        '  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; font-size: 0; line-height: 0;',
         '}',
-        '.dark [data-thread-details-card]::after { background-image: url("%s"); }' % data_uri(DARK),
-        ':root:not(.dark) [data-thread-details-card]::after { background-image: url("%s"); }' % data_uri(LIGHT),
+        '%s::before {' % PANEL,
+        '  content: ""; position: absolute; left: 0; right: 0; bottom: 0; z-index: -1; pointer-events: none;',
+        '  box-sizing: border-box; aspect-ratio: %d / %d;' % (WIDTH, visible_height()),
+        '  background: var(--popover); border: 1px solid color-mix(in srgb, var(--contrast-foreground) 10%, transparent);',
+        '  border-radius: 1rem;',
+        '}',
+        '.dark %s::after { content: url("%s"); }' % (PANEL, data_uri(DARK)),
+        ':root:not(.dark) %s::after { content: url("%s"); }' % (PANEL, data_uri(LIGHT)),
     ])
 
 
@@ -156,11 +181,13 @@ def preview_html():
         blocks.append(
             '<div style="background:%s;padding:20px;border-radius:10px;flex:1">'
             '<div style="color:%s;font:12px %s;margin-bottom:8px">%s</div>'
-            '<div style="width:%dpx;background:%s;border:1px solid %s;border-radius:12px;padding:8px 0;font:13px %s;color:%s">'
-            '<div style="padding:8px 18px">Open in VS Code</div><div style="padding:8px 18px">Push &amp; create PR</div>'
-            '<img src="%s" style="display:block;width:100%%;margin-top:4px"></div></div>'
+            '<div style="width:%dpx;background:%s;border:1px solid %s;border-radius:16px;padding:8px 0;font:13px %s;color:%s">'
+            '<div style="padding:8px 18px">Open in VS Code</div><div style="padding:8px 18px">Push &amp; create PR</div></div>'
+            '<div style="width:%dpx;margin-top:8px;aspect-ratio:%d / %d;overflow-y:auto;scrollbar-width:none;'
+            'background:%s;border:1px solid %s;border-radius:16px">'
+            '<img src="%s" style="display:block;width:100%%"></div></div>'
             % (colors['canvas'], colors['textMuted'], FONT, name, WIDTH, colors['surface'], colors['border'], FONT,
-               colors['text'], data_uri(colors)))
+               colors['text'], WIDTH, WIDTH, visible_height(), colors['surface'], colors['border'], data_uri(colors)))
     return ('<!doctype html><html><head><meta charset="utf-8"></head><body>'
             '<div style="display:flex;gap:12px">%s</div></body></html>' % ''.join(blocks))
 
