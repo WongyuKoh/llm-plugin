@@ -13,9 +13,12 @@ from html import escape
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-WIDTH = 290
-ROW = 30
-HEADER = 30
+# T3 정보 패널 너비는 280px로 고정이다(T3 0.1.11 앱 코드의 mf=280, 2026-11-25 확인).
+# 그림 너비를 같게 두어 그림의 1단위가 화면 1px이 되게 한다. 줄 높이는 카드의 줄(h-8)과 같은 32px.
+WIDTH = 280
+ROW = 32
+HEADER = 32
+ICON = 17
 
 # T3 Code 기본 테마(t3-code) 색. T3 앱의 packages/shared/src/themePalettes.ts에서 옮김(2026-11-25 확인).
 DARK = {
@@ -122,20 +125,21 @@ def svg(colors, weight=400):
     for index, (title, hint, rows) in enumerate(GROUPS):
         if index:  # 첫 묶음 위 선은 상자 테두리와 겹치므로 그리지 않는다. 둥근 모서리 밖으로 나가지 않게 양끝을 줄인다.
             parts.append('<line x1="12" y1="%.1f" x2="%d" y2="%.1f" stroke="%s"/>' % (y + 0.5, WIDTH - 12, y + 0.5, colors['border']))
-        parts.append('<text x="18" y="%d" font-size="11.5" font-weight="500" fill="%s">%s</text>'
-                     % (y + 20, colors['textMuted'], escape(title)))
+        parts.append('<text x="18" y="%.1f" font-size="12" font-weight="500" fill="%s">%s</text>'
+                     % (y + 21.5, colors['textMuted'], escape(title)))
         if hint:
-            parts.append('<text x="%d" y="%d" font-size="11.5" text-anchor="end" fill="%s">%s</text>'
-                         % (WIDTH - 18, y + 20, colors['textMuted'], escape(hint)))
+            parts.append('<text x="%d" y="%.1f" font-size="12" text-anchor="end" fill="%s">%s</text>'
+                         % (WIDTH - 18, y + 21.5, colors['textMuted'], escape(hint)))
         y += HEADER
         for icon, label, desc in rows:
-            parts.append('<g transform="translate(18 %d) scale(0.6667)" fill="none" stroke="%s" stroke-width="2.1" '
-                         'stroke-linecap="round" stroke-linejoin="round">%s</g>' % (y + 7, colors['iconMuted'], ICONS[icon]))
-            parts.append('<text x="46" y="%d" font-size="13" font-weight="%d" fill="%s">%s</text>'
-                         % (y + 19.5, weight, colors['text'], escape(label)))
+            parts.append('<g transform="translate(18 %.1f) scale(%.4f)" fill="none" stroke="%s" stroke-width="2" '
+                         'stroke-linecap="round" stroke-linejoin="round">%s</g>'
+                         % (y + (ROW - ICON) / 2, ICON / 24, colors['iconMuted'], ICONS[icon]))
+            parts.append('<text x="47" y="%d" font-size="14" font-weight="%d" fill="%s">%s</text>'
+                         % (y + 21, weight, colors['text'], escape(label)))
             if desc:
-                parts.append('<text x="%d" y="%d" font-size="12.5" text-anchor="end" fill="%s">%s</text>'
-                             % (WIDTH - 18, y + 19.5, colors['textMuted'], escape(desc)))
+                parts.append('<text x="%d" y="%d" font-size="13" text-anchor="end" fill="%s">%s</text>'
+                             % (WIDTH - 18, y + 21, colors['textMuted'], escape(desc)))
             y += ROW
     # width/height 없이 viewBox만 두어 상자 너비에 맞춰 늘고 준다(높이는 비율대로).
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" font-family="%s">%s</svg>'
