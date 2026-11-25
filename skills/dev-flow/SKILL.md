@@ -26,7 +26,7 @@ T3 Code에서 질문, 작업, 테스트를 별도 세션으로 나누어 진행�
 사용자가 새 폴더(프로젝트)를 만들어 달라고 하거나, 기존 폴더에 세션 구성을 요청하거나, `/setup`을 입력하면 진행한다. T3에서 폴더만 추가해서는 이 절차가 실행되지 않는다. 설명(주제)이 있으면 세 세션을 그 주제로 묶는다.
 
 1. `t3_project_list`로 등록 여부를 확인하고, 없으면 `t3_project_create`로 등록한다. 폴더가 없으면 `createWorkspaceRootIfMissing`을 쓴다. 이 호출은 기본 모델을 받지 않는다.
-2. `t3_project_update`의 `defaultModelSelection`을 [작업] 모델로 지정한다. 값은 저장되지만 응답과 `t3_project_read`에는 `null`로 보일 수 있다(2026-11-25 확인). 이것만 보고 실패로 판단하거나 반복하지 않는다.
+2. 프로젝트 기본 모델(T3 화면에서 새 스레드를 만들 때 처음 선택되는 모델)을 [작업] 모델로 지정한다. T3는 이 값을 `~/.t3/userdata/settings.json`의 `projectSettingsOverrides.<projectId>.defaultModelSelection`에서 읽는다. 파일을 백업하고 JSON으로 읽어 이 키만 더한 뒤, `t3_project_read`의 `defaultModelSelection`에 그 모델이 보이면 적용된 것이다. `t3_project_update`의 `defaultModelSelection`은 프로젝트 기록에만 저장되어 새 스레드에 쓰이지 않는다(T3 0.1.11, `projectSettingsFolded: true`, 2026-11-25 확인).
 3. 제목은 주제가 있으면 `[역할] <주제>`, 없으면 `[역할] <프로젝트>`로 한다. `t3_thread_list`(`titleContains`)로 같은 제목의 세션이 있는지 보고, 없는 역할만 `t3_thread_launch`로 표의 모델과 `message` 없이 만든다.
 4. 세 세션의 `link`를 모은 뒤, 새로 만든 세션마다 `t3_thread_send`(`mode: "queue"`)로 아래 범위 메시지를 보낸다. 받은 세션은 한 줄로만 답하므로 세션마다 짧은 응답 한 번의 토큰이 든다.
 5. 세션 link, 역할, 모델, 범위를 표로 알린다.
@@ -41,7 +41,7 @@ T3 Code에서 질문, 작업, 테스트를 별도 세션으로 나누어 진행�
 
 역할별 할 일: [질문]은 이 주제에 관한 질문 답변·조사·작업 카드 작성과 인계, [작업]은 이 주제의 작업 카드 구현·커밋·PR·CI와 리뷰 대응, [테스트]는 이 주제의 완료 조건 검증·테스트 작성과 실행·결과 보고.
 
-폴더 없는 간단한 질문 스레드를 만들 때는 `t3_thread_launch`에 `scratch: true`와 Haiku 모델을 지정한다. T3 `No project` 프로젝트의 기본 모델은 Haiku 5.5 / `low`로 지정되어 있다.
+폴더 없는 간단한 질문 스레드를 만들 때는 `t3_thread_launch`에 `scratch: true`와 Haiku 모델을 지정한다. 모델을 빼면 호출한 스레드의 모델을 물려받는다. T3 화면에서 폴더 없이 만드는 새 스레드는 `No project`의 기본 모델(Haiku 5.5 / `low`, 위 2번과 같은 `settings.json` 설정)을 쓴다.
 
 ## 역할
 

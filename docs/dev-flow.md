@@ -99,7 +99,7 @@
 
 | 항목 | 상태 |
 |---|---|
-| 폴더 없는 스레드 기본 모델 | T3 `No project`의 기본 모델을 Haiku 5.5 / low로 저장했습니다. T3 화면에서 새 스레드를 만들 때 이 값이 기본 선택되는지는 확인하지 않았습니다. |
+| 폴더 없는 스레드 기본 모델 | T3 `No project`의 새 스레드 기본 모델을 Haiku 5.5 / low로 지정했습니다(`~/.t3/userdata/settings.json`의 `projectSettingsOverrides`). 처음에 쓴 `t3_project_update`는 프로젝트 기록에만 저장되어 적용되지 않았습니다. T3 서버가 새 값을 읽는 것은 `t3_project_read`로 확인했습니다. |
 | 새 프로젝트의 세 세션 | `dev-flow` 절차로 에이전트가 만듭니다. 임시 프로젝트에서 스레드별 모델 지정과 대기 스레드 생성을 확인한 뒤 삭제했습니다. |
 | 이 저장소 밖에서 사용 | `install.sh`로 스킬과 명령을 `~/.claude/skills`, `~/.codex/skills`에 연결했습니다. 이 Mac의 모든 프로젝트와 폴더 없는 세션에서 쓸 수 있습니다. |
 | 응답 언어 | 한국어 기본, 영어는 요청할 때만. 사실 기준 답변 규칙과 함께 `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`에 넣었습니다. |
