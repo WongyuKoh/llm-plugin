@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T3 Code 기본 테마 색을 그대로 쓰면서 스레드 정보 카드 아래에 명령 안내 상자를 붙이는 테마를 만든다.
 
-안내 상자는 카드와 분리된 별도 상자이고, 높이를 384px로 고정해 상자 안에서 따로 스크롤된다.
+안내 상자는 카드와 분리된 별도 상자이고, 높이를 384px로 고정해 상자 안에서 따로 스크롤된다(실제 스크롤은 패널이 맡는다).
 카드 안에 붙이면 카드의 하위 세션 목록(Lineage) 등이 밀려 보이지 않아서 패널(aside)에 붙인다.
 
 출력: 같은 폴더의 theme.json (t3_theme_set의 theme 값), preview.html (확인용 화면)
@@ -167,24 +167,33 @@ PANEL = '[data-thread-details-panel="inline"]'
 
 
 def css():
-    # 패널(aside)을 세로 flex로 바꿔 [카드][안내 상자]로 나눈다. 공간이 모자라면 카드가 줄고 카드 안에서 스크롤된다.
-    # 안내 상자(::after)는 content: url()의 그림이 상자보다 길어 상자 안에서 따로 스크롤된다.
-    # 스크롤 상자에 border-radius나 clip-path가 있으면 Chromium에서 휠 스크롤이 막혀서(Chrome 158 시험, 2026-11-25)
-    # 상자는 투명한 네모로 두고, 둥근 배경과 테두리는 같은 크기의 ::before를 뒤에 깔아 그린다.
+    # 패널(aside)을 세로 flex로 바꿔 [카드][안내 그림]으로 나눈다. 공간이 모자라면 카드가 줄고 카드 안에서 스크롤된다.
+    # 스크롤 상자는 실제 요소인 패널이다. 처음에는 ::after를 스크롤 상자로 썼지만, 상위 요소가 둥근 모서리로 내용을 자르면
+    # Chromium이 가상 요소의 스크롤 상자를 찾지 못해 트랙패드 스크롤이 안 됐다(T3의 Chromium 152에서는 휠도, 2026-11-25 재현).
+    # 그래서 패널은 '내 명령' 창(visible)까지만 보이고 그림의 나머지(hidden)만큼 스크롤된다. 카드는 sticky로 위에 고정하고,
+    # 그림은 스크롤 위치에 맞춰 clip-path로 잘라(스크롤 연동 애니메이션) 창이 제자리에 보이게 한다. 테두리(::before)도 같이 내린다.
+    # 그림 높이는 px로 정한다. WIDTH가 T3 패널 너비(280px)와 같아야 그림이 창에 맞는다.
+    full, visible = height(), visible_height()
+    hidden = full - visible
+    timeline = 'animation-timeline: scroll(nearest block);'
     return '\n'.join([
         '/* llm-plugin: 스레드 정보 카드 아래, 따로 스크롤되는 명령 안내 상자 (plugins/t3-guide/build_theme.py로 생성) */',
-        '%s { display: flex !important; flex-direction: column; gap: 8px; }' % PANEL,
-        '%s > [data-thread-details-card] { flex: 0 1 auto; min-height: 0; }' % PANEL,
+        '%s { display: flex !important; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }' % PANEL,
+        '%s > [data-thread-details-card] { flex: 0 1 auto; min-height: 0; position: sticky; top: 0; }' % PANEL,
+        '%s > [data-thread-details-card] [data-slot="scroll-area-viewport"] { overscroll-behavior-y: contain; }' % PANEL,
         '%s::after {' % PANEL,
-        '  display: block; flex: none; aspect-ratio: %d / %d;' % (WIDTH, visible_height()),
-        '  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; font-size: 0; line-height: 0;',
+        '  display: block; flex: none; width: 100%%; height: %dpx; margin: 8px 0 -%dpx; font-size: 0; line-height: 0;' % (full, hidden),
+        '  background: var(--popover); clip-path: inset(0 0 %dpx 0 round 1rem);' % hidden,
+        '  animation: llm-guide-window linear both; ' + timeline,
         '}',
+        '@keyframes llm-guide-window { from { clip-path: inset(0 0 %dpx 0 round 1rem); } to { clip-path: inset(%dpx 0 0 0 round 1rem); } }'
+        % (hidden, hidden),
         '%s::before {' % PANEL,
-        '  content: ""; position: absolute; left: 0; right: 0; bottom: 0; z-index: -1; pointer-events: none;',
-        '  box-sizing: border-box; aspect-ratio: %d / %d;' % (WIDTH, visible_height()),
-        '  background: var(--popover); border: 1px solid color-mix(in srgb, var(--contrast-foreground) 10%, transparent);',
-        '  border-radius: 1rem;',
+        '  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: %dpx; z-index: 2; pointer-events: none;' % visible,
+        '  box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--contrast-foreground) 10%, transparent); border-radius: 1rem;',
+        '  animation: llm-guide-frame linear both; ' + timeline,
         '}',
+        '@keyframes llm-guide-frame { from { transform: translateY(0); } to { transform: translateY(%dpx); } }' % hidden,
         '.dark %s::after { content: url("%s"); }' % (PANEL, data_uri(DARK)),
         ':root:not(.dark) %s::after { content: url("%s"); }' % (PANEL, data_uri(LIGHT)),
     ])
