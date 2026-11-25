@@ -27,8 +27,10 @@ python3 plugins/t3-guide/build_theme.py   # theme.json, preview.html 생성
 
 ## 가이드북 메뉴 막대 아이콘
 
-카드 안내는 그림이라 누를 수 없습니다. 누르는 가이드북은 `/guide`로 대화에 띄우거나, 맥 메뉴 막대의 `📘 T3 스킬 가이드`를 눌러 화면 가운데의 창으로 엽니다. 메뉴 막대 항목을 다시 누르거나 Esc를 누르거나 다른 곳을 클릭하면 닫힙니다.
+카드 안내는 그림이라 누를 수 없습니다. 누르는 가이드북은 `/guide`로 대화에 띄우거나, 맥 메뉴 막대의 `📘 T3 스킬 가이드`를 눌러 창으로 엽니다. 메뉴 막대 항목을 다시 누르거나 Esc를 누르거나 다른 곳을 클릭하면 닫힙니다.
 
+- 창은 지금 작업 중인 화면 가운데에 뜹니다. 작업 중인 화면은 맨 앞 앱의 창이 있는 화면이고, 찾지 못하면 마우스가 있는 화면입니다. 모니터를 연결하면 메뉴 막대가 노트북에만 있거나 전체 화면 앱에서 숨을 수 있어서, 메뉴 막대를 누른 화면이 아니라 작업 중인 화면을 기준으로 합니다(2026-11-25). 창 위치는 화면 기록 권한 없이 읽습니다.
+- 지금 보고 있는 Space와 전체 화면 앱 위에도 뜹니다.
 - 창은 앱을 활성화하지 않는 패널이라, 다른 앱을 앞에 둔 채로 바로 키보드 입력을 받습니다.
 - 메뉴 막대 항목은 macOS가 로그인할 때 켜는 별도 프로그램(LaunchAgent)이라 T3가 꺼져 있어도 동작합니다.
 - 창을 열 때마다 `guidebook.html`을 다시 읽으므로, 페이지를 고치면 다음에 열 때 반영됩니다.
@@ -63,6 +65,8 @@ sh skills/guide/menubar.sh uninstall  # 끄고 자동 실행 지우기
 ```sh
 # 창을 띄우지 않고 스크롤 막대 폭을 잰다(0px이면 숨겨진 상태)
 osascript -l JavaScript skills/guide/guide-window.js "$PWD/skills/guide/guidebook.html" --check
+# 창을 띄우지 않고 화면 목록과 창을 놓을 화면·위치를 적는다(=x,y를 주면 그 점이 있는 화면을 고른다)
+osascript -l JavaScript skills/guide/guide-window.js "$PWD/skills/guide/guidebook.html" --where
 # 창을 3초 동안 띄우고 포커스 변화를 기록한다
 osascript -l JavaScript skills/guide/guide-window.js "$PWD/skills/guide/guidebook.html" --debug --quit-after=3
 # 메뉴 막대 아이콘을 4초 동안 띄우고, 1초에 창을 열고 2.5초에 닫는다

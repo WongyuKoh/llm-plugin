@@ -1,8 +1,12 @@
-// 가이드북을 화면 가운데의 떠 있는 창으로 띄운다(macOS, JXA + WebKit).
+// 가이드북을 지금 작업 중인 화면 가운데의 떠 있는 창으로 띄운다(macOS, JXA + WebKit).
+// 작업 중인 화면은 맨 앞 앱의 창이 있는 화면이고, 찾지 못하면 마우스가 있는 화면이다.
+// 모니터를 연결하면 메뉴 막대가 노트북에만 있을 수 있어, 메뉴 막대를 누른 화면이 아니라 작업 중인 화면에 띄운다.
 // 사용: osascript -l JavaScript guide-window.js <guidebook.html 절대 경로> [옵션]
 //   --menubar        메뉴 막대에 '📘 T3 스킬 가이드'를 두고 계속 실행한다. 누르면 창을 열고 닫는다.
 //   --debug          창 이벤트를 stderr에 적는다.
 //   --check          창을 띄우지 않고 페이지를 불러 스크롤 막대 폭 등을 적은 뒤 끝낸다.
+//   --where[=x,y]    창을 띄우지 않고 화면 목록과 창을 놓을 화면·위치를 적은 뒤 끝낸다.
+//                    x,y(Cocoa 좌표)를 주면 맨 앞 창 대신 그 점이 있는 화면을 고른다.
 //   --quit-after=초   시험용. 지정한 시간이 지나면 끝낸다.
 //   --click-after=초[,초...]  시험용(--menubar). 지정한 시간에 아이콘을 누른 것처럼 동작한다.
 // 창은 앱을 활성화하지 않는 패널이라 다른 앱을 앞에 둔 채로 키보드 입력(Esc 등)을 받는다.
@@ -10,6 +14,7 @@
 // 페이지의 복사 버튼은 이 프로그램이 클립보드에 넣는다.
 ObjC.import('Cocoa');
 ObjC.import('WebKit');
+ObjC.import('CoreGraphics');
 
 const state = {
   page: '', debug: false, menubar: false, closing: false,
@@ -135,6 +140,8 @@ function createPanel(check) {
   panel.titlebarAppearsTransparent = true;
   panel.titleVisibility = $.NSWindowTitleHidden;
   panel.level = $.NSFloatingWindowLevel;
+  // 지금 보고 있는 Space에 뜨고, 전체 화면 앱 위에도 뜬다(MoveToActiveSpace | FullScreenAuxiliary).
+  panel.collectionBehavior = (1 << 1) | (1 << 8);
   panel.releasedWhenClosed = false;
   panel.delegate = state.handler;
 
@@ -157,11 +164,78 @@ function loadPage() {
   state.web.loadFileURLAllowingReadAccessToURL(url, url.URLByDeletingLastPathComponent);
 }
 
+function screenList() {
+  const screens = $.NSScreen.screens;
+  const list = [];
+  for (let i = 0; i < screens.count; i++) list.push(screens.objectAtIndex(i));
+  return list;
+}
+
+function screenIndexAt(point) {
+  return screenList().findIndex(screen => {
+    const f = screen.frame;
+    return point.x >= f.origin.x && point.x <= f.origin.x + f.size.width
+      && point.y >= f.origin.y && point.y <= f.origin.y + f.size.height;
+  });
+}
+
+// 맨 앞 앱의 맨 앞 창 가운데(Cocoa 좌표). 창 위치는 화면 기록 권한 없이 읽힌다.
+function frontWindowCenter() {
+  const front = $.NSWorkspace.sharedWorkspace.frontmostApplication;
+  if (!front || front.isNil()) return null;
+  const pid = front.processIdentifier;
+  if (pid === $.NSProcessInfo.processInfo.processIdentifier) return null;
+  // kCGWindowListOptionOnScreenOnly(1) | kCGWindowListExcludeDesktopElements(16), kCGNullWindowID(0). 앞에 있는 창부터 온다.
+  const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(1 | 16, 0))) || [];
+  const win = windows.find(w => w.kCGWindowOwnerPID === pid && w.kCGWindowLayer === 0
+    && w.kCGWindowBounds && w.kCGWindowBounds.Width > 50 && w.kCGWindowBounds.Height > 50);
+  if (!win) return null;
+  const b = win.kCGWindowBounds;
+  // Quartz 좌표는 주 화면 왼쪽 위가 원점이고 아래로 커진다. Cocoa 좌표로 바꾼다.
+  const primaryHeight = screenList()[0].frame.size.height;
+  return { x: b.X + b.Width / 2, y: primaryHeight - (b.Y + b.Height / 2), app: ObjC.unwrap(front.localizedName) };
+}
+
+// 창을 놓을 화면: 맨 앞 창이 있는 화면 → 마우스가 있는 화면 → 주 화면. 화면 정보를 못 읽으면 null.
+function targetScreen(point) {
+  const screens = screenList();
+  if (screens.length === 0) return null;
+  const front = point || frontWindowCenter();
+  let index = front ? screenIndexAt(front) : -1;
+  let reason = point ? '지정한 점' : front ? '맨 앞 창(' + front.app + ')' : '';
+  if (index < 0) {
+    index = screenIndexAt($.NSEvent.mouseLocation);
+    reason = '마우스';
+  }
+  if (index < 0) return { screen: screens[0], index: 0, reason: '주 화면' };
+  return { screen: screens[index], index, reason };
+}
+
+// 화면의 사용 가능 영역(메뉴 막대·Dock 제외) 가운데에 화면 크기에 맞춘 창 크기를 정한다.
+function panelRect(screen) {
+  const v = screen.visibleFrame;
+  const width = Math.min(640, v.size.width * 0.9);
+  const height = Math.min(780, v.size.height * 0.88);
+  return $.NSMakeRect(v.origin.x + (v.size.width - width) / 2, v.origin.y + (v.size.height - height) / 2, width, height);
+}
+
+function describeRect(rect) {
+  return [rect.origin.x, rect.origin.y, rect.size.width, rect.size.height].map(Math.round).join(',');
+}
+
 function showPanel() {
   if (!state.panel) createPanel(false);
   // 열 때마다 다시 불러 guidebook.html 변경을 바로 반영한다.
   loadPage();
-  state.panel.center;
+  const target = targetScreen(null);
+  if (target) {
+    const rect = panelRect(target.screen);
+    state.panel.setFrameDisplay(rect, true);
+    log('화면 ' + target.index + '(' + target.reason + ')에 표시 · ' + describeRect(rect));
+  } else {
+    state.panel.center;
+    log('화면 정보를 못 읽어 가운데에 표시');
+  }
   state.panel.makeKeyAndOrderFront(null);
   state.shownAt = Date.now();
   log('창 표시 · key=' + state.panel.isKeyWindow + ' visible=' + state.panel.isVisible);
@@ -195,6 +269,18 @@ function run(argv) {
   const app = $.NSApplication.sharedApplication;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
   state.handler = $.GuideWindowHandler.alloc.init;
+
+  const where = argv.find(arg => arg === '--where' || arg.startsWith('--where='));
+  if (where) {
+    const xy = optionValue(argv, '--where').split(',').map(Number);
+    const point = xy.length === 2 && xy.every(Number.isFinite) ? { x: xy[0], y: xy[1] } : null;
+    const lines = screenList().map((screen, i) => '화면 ' + i + ': ' + ObjC.unwrap(screen.localizedName)
+      + ' · 전체 ' + describeRect(screen.frame) + ' · 사용 가능 ' + describeRect(screen.visibleFrame));
+    const target = targetScreen(point);
+    lines.push(target ? '창을 놓을 곳: 화면 ' + target.index + '(' + target.reason + ') · ' + describeRect(panelRect(target.screen))
+      : '화면 정보를 읽지 못했습니다(샌드박스 안에서 실행했는지 확인).');
+    return lines.join('\n');
+  }
 
   if (check) {
     createPanel(true);
