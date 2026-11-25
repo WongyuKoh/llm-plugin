@@ -40,6 +40,6 @@ rm -f artifacts/claude-skills/session-focus.zip
 
 리뷰나 PR 정리 시 `/review-learning`을 사용하세요. 로컬 vault에 접근할 수 있으면 보관함의 자체 지침과 노트 작성 규칙을 따르고, 관련 기록이 없거나 분류가 불확실하면 수집함에 학습 노트를 만듭니다. 실제 노트 생성 및 변경은 해당 작업의 요청과 Claude 권한에 따릅니다.
 
-클라우드 환경은 Mac의 vault 경로를 직접 볼 수 없습니다. Claude 클라우드 세션에서 Google Drive 커넥터를 켜고 학습 Markdown을 `Claude-Obsidian-Inbox` 폴더에 저장하면, 이 Mac의 수신기가 이를 Obsidian `00_Inbox`로 가져옵니다. 다른 클라우드 세션에서도 커넥터 활성화나 도구 승인이 필요할 수 있습니다.
+클라우드 환경은 Mac의 vault 경로를 직접 볼 수 없습니다. Claude 클라우드 세션에서 Google Drive 커넥터를 켜고 학습 Markdown을 `Claude-Obsidian-Inbox` 폴더에 저장하면, 이 Mac의 수신기가 이를 Obsidian vault의 수신 폴더로 가져옵니다. 다른 클라우드 세션에서도 커넥터 활성화나 도구 승인이 필요할 수 있습니다.
 
 2026-11-22에 클라우드 Claude가 생성한 테스트 노트의 Mac 저장을 확인했습니다. 로그인한 Mac에서 5분 간격으로 자동 실행되도록 설정했으며, 기존 파일을 덮어쓰거나 Drive에서 삭제된 파일을 로컬에서 삭제하지 않습니다. 변경된 같은 이름의 노트는 충돌로 처리합니다. 개인 OAuth 클라이언트는 Google 테스트 상태라 갱신 토큰이 7일 후 만료됩니다. Google 권한 범위, 재인증, 오류 확인 및 장기 사용 조건은 [수신기 안내](../plugins/obsidian-note-inbox/README.md)를 참고하세요.
