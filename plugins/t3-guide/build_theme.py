@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T3 Code 기본 테마 색을 그대로 쓰면서 스레드 정보 카드 아래에 명령 안내 상자를 붙이는 테마를 만든다.
 
-안내 상자는 카드와 분리된 별도 상자이고, 높이를 '내 명령' 묶음의 1.5배로 고정해 상자 안에서 따로 스크롤된다.
+안내 상자는 카드와 분리된 별도 상자이고, 높이를 384px로 고정해 상자 안에서 따로 스크롤된다.
 카드 안에 붙이면 카드의 하위 세션 목록(Lineage) 등이 밀려 보이지 않아서 패널(aside)에 붙인다.
 
 출력: 같은 폴더의 theme.json (t3_theme_set의 theme 값), preview.html (확인용 화면)
@@ -19,7 +19,7 @@ WIDTH = 280
 ROW = 32
 HEADER = 32
 ICON = 17
-VISIBLE_RATIO = 1.5  # 안내 상자 높이: '내 명령' 묶음 높이의 배수
+VISIBLE_HEIGHT = 384  # 안내 상자 높이(px). 2026-11-25 사용자가 정한 값('내 명령' 7줄 높이의 1.5배). 명령을 더해도 유지한다.
 
 # T3 Code 기본 테마(t3-code) 색. T3 앱의 packages/shared/src/themePalettes.ts에서 옮김(2026-11-25 확인).
 DARK = {
@@ -72,6 +72,7 @@ ICONS = {
     'layout': '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
     'card': '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
     'send': '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    'split': '<path d="M3 12h5l4-6h7M8 12l4 6h7"/><path d="M16 3l3 3-3 3M16 15l3 3-3 3"/>',
     'check': '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>',
     'activity': '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
     'history': '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
@@ -92,6 +93,7 @@ GROUPS = [
         ('layout', '/setup', '주제별 세션 3개'),
         ('card', '/card', '작업 카드'),
         ('send', '/handoff', '작업 넘기기'),
+        ('split', '/parallel', '나눠서 동시 진행'),
         ('check', '/qa', '완료 조건 검증'),
         ('activity', '/progress', '진행·질문 보기'),
         ('history', '/sessions', 'T3 밖 세션'),
@@ -117,11 +119,8 @@ def height():
 
 
 def visible_height():
-    """안내 상자에 한 번에 보이는 높이: 첫 묶음('내 명령') 높이의 VISIBLE_RATIO배에 가장 가까운 줄 경계.
-
-    줄 중간에서 잘리지 않게 줄 경계에 맞춘다. 지금은 '내 명령' 전체와 'Git · 기록'의 앞 세 줄(384px)이 보인다.
-    """
-    target = (HEADER + ROW * len(GROUPS[0][2])) * VISIBLE_RATIO
+    """안내 상자에 한 번에 보이는 높이: VISIBLE_HEIGHT에 가장 가까운 줄 경계(줄 중간에서 잘리지 않게)."""
+    target = VISIBLE_HEIGHT
     edges, y = [], 0
     for _, _, rows in GROUPS:
         y += HEADER
