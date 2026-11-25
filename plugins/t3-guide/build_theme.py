@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """T3 Code 기본 테마 색을 그대로 쓰면서 스레드 정보 카드 아래에 명령 안내 상자를 붙이는 테마를 만든다.
 
-안내 상자는 카드와 분리된 별도 상자이고, '내 명령' 묶음이 한 번에 보이는 높이로 고정해 상자 안에서 따로 스크롤된다.
+안내 상자는 카드와 분리된 별도 상자이고, 높이를 '내 명령' 묶음의 1.5배로 고정해 상자 안에서 따로 스크롤된다.
 카드 안에 붙이면 카드의 하위 세션 목록(Lineage) 등이 밀려 보이지 않아서 패널(aside)에 붙인다.
 
 출력: 같은 폴더의 theme.json (t3_theme_set의 theme 값), preview.html (확인용 화면)
@@ -19,6 +19,7 @@ WIDTH = 280
 ROW = 32
 HEADER = 32
 ICON = 17
+VISIBLE_RATIO = 1.5  # 안내 상자 높이: '내 명령' 묶음 높이의 배수
 
 # T3 Code 기본 테마(t3-code) 색. T3 앱의 packages/shared/src/themePalettes.ts에서 옮김(2026-11-25 확인).
 DARK = {
@@ -116,8 +117,19 @@ def height():
 
 
 def visible_height():
-    """안내 상자에 한 번에 보이는 높이: 첫 묶음('내 명령') 전체."""
-    return HEADER + ROW * len(GROUPS[0][2])
+    """안내 상자에 한 번에 보이는 높이: 첫 묶음('내 명령') 높이의 VISIBLE_RATIO배에 가장 가까운 줄 경계.
+
+    줄 중간에서 잘리지 않게 줄 경계에 맞춘다. 지금은 '내 명령' 전체와 'Git · 기록'의 앞 세 줄(384px)이 보인다.
+    """
+    target = (HEADER + ROW * len(GROUPS[0][2])) * VISIBLE_RATIO
+    edges, y = [], 0
+    for _, _, rows in GROUPS:
+        y += HEADER
+        edges.append(y)
+        for _ in rows:
+            y += ROW
+            edges.append(y)
+    return min(edges, key=lambda edge: abs(edge - target))
 
 
 def svg(colors, weight=400):
