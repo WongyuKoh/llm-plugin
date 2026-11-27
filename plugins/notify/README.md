@@ -9,6 +9,7 @@ Claude Code나 Codex 세션에서 사용자가 해야 할 일이 생기면 이 M
 | ❓ 질문에 답해야 할 때 | Claude `AskUserQuestion`(PreToolUse 훅), 입력 요청 알림 |
 | 🔐 승인이 필요할 때 | Claude `PermissionRequest` 훅, 권한 요청 알림 |
 | 🔔 할 일이 남았을 때 | 응답 마지막 줄의 `🔔 할 일: …`(Claude Stop 훅, Codex `notify`) |
+| 🔁 세션이 길어지거나 압축될 때 | 응답 끝 컨텍스트가 창의 80% 이상(Claude Stop 훅), 압축 직전(Claude `PreCompact` 훅). 새 세션으로 이어가자는 알림(`/relay`) |
 | ⚠️ 확인이 필요할 때 | Drive 동기화가 약 30분 연속 실패할 때(`obsidian-note-inbox`) |
 
 `🔔 할 일` 표시는 전역 지침(`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`)에 따라 에이전트가 응답 맨 끝에 씁니다. 할 일이 하나면 한 줄, 둘 이상이면 번호 목록입니다.
@@ -68,8 +69,10 @@ Claude Code나 Codex 세션에서 사용자가 해야 할 일이 생기면 이 M
 | 질문(`AskUserQuestion`)이나 승인 요청이 생김 | 질문·승인 항목을 넣습니다. |
 | 질문에 답하거나 승인한 도구가 실행됨(Claude `PostToolUse`) | 그 질문·승인 항목을 지웁니다. |
 | 다른 프로그램이 `send --kind alert`나 `action`으로 알림(예: Drive 동기화 실패) | 세션 없는 항목으로 넣습니다. `완료`로만 지워집니다. |
+| 응답 끝 컨텍스트가 창의 `relay_percent`(기본 80%) 이상이거나, 세션이 압축됨(Claude `PreCompact`) | "새 세션으로 이어가기" 할 일을 넣습니다. 추천이 `/relay`라서 `알아서 진행`을 누르면 그 세션이 `/relay`로 새 세션을 만듭니다. `완료`로 지우면 다음 압축 전까지 다시 넣지 않고, `/relay`가 원래 세션 제목 앞에 `(이어감)`을 붙이면 넣지 않습니다. |
 
 - 하위 에이전트(`agent_id`가 있는 이벤트)는 목록에 넣지 않습니다.
+- 압축은 컨텍스트가 가득 찰 때(약 90만~100만 토큰)뿐 아니라, T3·Claude Code가 자리를 비운 사이 긴 대화를 줄일 때(약 10만~50만 토큰)도 일어납니다. 앞의 경우는 80% 기준으로 미리 알리고, 뒤의 경우는 압축될 때 알립니다.
 - Codex는 `notify`로 응답 끝만 알려 주므로, 사용자가 답할 때가 아니라 다음 응답이 끝날 때 바뀝니다.
 - `PostToolUse` 훅은 질문·승인 항목이 있을 때만(`todos-waiting` 파일이 있을 때만) Python을 실행합니다. 도구를 쓸 때마다 Python을 띄우지 않기 위해서입니다.
 - 세션 제목은 T3 상태 DB(`~/.t3/userdata/statev2.sqlite`)를 읽기 전용으로 열어 Claude·Codex 세션 ID로 찾습니다. T3 밖 세션은 프로젝트 이름만 나옵니다.
@@ -123,6 +126,7 @@ ntfy 앱(iOS, Android)에서 서버 `https://ntfy.sh`의 주제를 구독합니�
 | `ntfy_server`, `ntfy_topic` | `https://ntfy.sh`, 설치 때 무작위 생성 | 휴대폰 알림 서버와 주제 |
 | `phone_detail` | `true` | 휴대폰 알림에 할 일·질문 내용을 넣음. `false`면 종류만 보냄 |
 | `phone_project` | `false` | `true`면 휴대폰 알림에 에이전트와 프로젝트 이름도 넣음 |
+| `relay_percent` | `80` | 응답 끝 컨텍스트가 창의 이 비율 이상이면 "새 세션으로 이어가기"를 넣음. 창 크기는 T3 모델 목록(`~/.t3/userdata/model-manifest.json`)에서 읽고, 없으면 100만으로 봄 |
 
 Mac 알림은 `osascript`로 보내며 처음에는 macOS가 알림 허용을 물을 수 있습니다. 방해 금지 모드에서는 소리가 나지 않을 수 있습니다.
 

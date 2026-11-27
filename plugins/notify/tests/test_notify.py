@@ -221,6 +221,78 @@ class TodoListTests(TestCase):
         self.assertIn('- 추천: 추천대로', run.call_args.kwargs['input'])
         self.assertEqual(self.items()[0]['state'], 'error')
 
+    def transcript(self, tokens, model='claude-opus-5-5'):
+        path = self.root / 't.jsonl'
+        line = {'type': 'assistant', 'message': {'model': model, 'content': [{'type': 'text', 'text': '끝'}],
+                                                 'usage': {'input_tokens': 10, 'cache_read_input_tokens': tokens - 10}}}
+        path.write_text(json.dumps(line) + '\n')
+        return str(path)
+
+    def relay_items(self):
+        return [item for item in self.items() if item.get('source') == 'relay']
+
+    def test_context_window_from_t3_manifest(self):
+        manifest = self.root / 'manifest.json'
+        manifest.write_text(json.dumps({'manifest': {'providers': {'claudeAgent': {'profiles': {
+            'opus-5-5': {'adapter': {'claudeCode': {'fixedContextWindowTokens': 1000000}}},
+            'sonnet-4-6': {'adapter': {'claudeCode': {'contextWindowTokens': {'200k': 200000, '1m': 1000000}}}}}}}}}))
+        with mock.patch.object(notify, 'T3_MANIFEST', manifest):
+            self.assertEqual(notify.context_window('claude-opus-5-5'), 1000000)
+            self.assertEqual(notify.context_window('claude-sonnet-4-6'), 200000)
+            self.assertEqual(notify.context_window('claude-sonnet-4-6[1m]'), 1000000)
+            self.assertEqual(notify.context_window('unknown'), 1000000)
+            self.assertEqual(notify.context_usage(self.transcript(850000)), (850000, 1000000))
+
+    def test_long_session_gets_relay_suggestion_until_dismissed(self):
+        with mock.patch.object(notify, 'CONF', self.root / 'conf.json'):
+            stop = {'hook_event_name': 'Stop', 'session_id': 's1', 'cwd': '/p', 'last_assistant_message': '끝'}
+            notify.track_claude(dict(stop, transcript_path=self.transcript(500000)))
+            self.assertEqual(self.relay_items(), [])  # 창의 80% 아래
+            notify.track_claude(dict(stop, transcript_path=self.transcript(850000),
+                                     last_assistant_message='끝\n🔔 할 일: 다른 일'))
+            relay = self.relay_items()
+            self.assertEqual(len(relay), 1)
+            self.assertIn('85만 토큰', relay[0]['text'])
+            self.assertIn('/relay', relay[0]['recommend'])
+            self.assertEqual(sorted(item['text'] for item in self.items() if item.get('source') != 'relay'), ['다른 일'])
+            with mock.patch('builtins.print'):
+                notify.main(['todo', 'done', relay[0]['id']])
+            notify.track_claude(dict(stop, transcript_path=self.transcript(900000)))
+            self.assertEqual(self.relay_items(), [])  # 지운 뒤에는 다시 넣지 않는다
+
+    def test_compaction_adds_relay_suggestion_that_survives_stop(self):
+        with mock.patch.object(notify, 'CONF', self.root / 'conf.json'):
+            notify.track_claude({'hook_event_name': 'PreCompact', 'session_id': 's1', 'cwd': '/p', 'trigger': 'auto',
+                                 'transcript_path': self.transcript(300000)})
+            self.assertIn('압축됐습니다(직전 컨텍스트 약 30만 토큰)', self.relay_items()[0]['text'])
+            notify.track_claude({'hook_event_name': 'Stop', 'session_id': 's1', 'cwd': '/p',
+                                 'last_assistant_message': '요약 뒤 응답', 'transcript_path': self.transcript(40000)})
+            self.assertEqual(len(self.relay_items()), 1)
+            with mock.patch.object(notify, 't3_thread', return_value=('thread-1', '(이어감) 원래 세션')):
+                notify.track_claude({'hook_event_name': 'Stop', 'session_id': 's1', 'cwd': '/p',
+                                     'last_assistant_message': '새 세션을 만들었습니다.'})
+            self.assertEqual(self.relay_items(), [])  # /relay가 제목에 (이어감)을 붙이면 넣지 않는다
+
+    def test_refresh_turn_keeps_todos(self):
+        self.stop('s1', '🔔 할 일:\n1. 가\n2. 나')
+        path = self.root / 'r.jsonl'
+        rows = [{'type': 'user', 'message': {'content': '<command-message>refresh</command-message>\n<command-name>/refresh</command-name>'}},
+                {'type': 'user', 'isMeta': True, 'message': {'content': [{'type': 'text', 'text': '# 지침·스킬 새로고침'}]}},
+                {'type': 'assistant', 'message': {'content': [{'type': 'text', 'text': '바뀐 규칙: 없음'}]}}]
+        path.write_text('\n'.join(json.dumps(row, ensure_ascii=False) for row in rows) + '\n')
+        notify.track_claude({'hook_event_name': 'Stop', 'session_id': 's1', 'transcript_path': str(path),
+                             'last_assistant_message': '바뀐 규칙: 없음'})
+        self.assertEqual([item['text'] for item in self.items()], ['가', '나'])
+        rows[0]['message']['content'] = '이제 끝났어'
+        path.write_text('\n'.join(json.dumps(row, ensure_ascii=False) for row in rows) + '\n')
+        notify.track_claude({'hook_event_name': 'Stop', 'session_id': 's1', 'transcript_path': str(path),
+                             'last_assistant_message': '정리했습니다.'})
+        self.assertEqual(self.items(), [])
+        notify.track_codex({'type': 'agent-turn-complete', 'thread-id': 't', 'last-assistant-message': '🔔 할 일: 다'})
+        notify.track_codex({'type': 'agent-turn-complete', 'thread-id': 't', 'input-messages': ['$refresh'],
+                            'last-assistant-message': '바뀐 규칙 없음'})
+        self.assertEqual([item['text'] for item in self.items()], ['다'])
+
     def test_broken_file_does_not_break_hooks(self):
         notify.TODOS.write_text('{깨짐')
         self.stop('s1', '🔔 할 일: 새 일')

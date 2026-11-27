@@ -20,6 +20,7 @@
 할 일 목록: ~/.config/llm-plugin/todos.json
 """
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -41,6 +42,7 @@ TODOS_LOCK = CONF_DIR / 'todos.lock'
 # 질문·승인 항목이 있을 때만 있는 표시 파일. PostToolUse 훅은 이 파일이 있을 때만 Python을 실행한다.
 WAITING = CONF_DIR / 'todos-waiting'
 T3_DB = HOME / '.t3' / 'userdata' / 'statev2.sqlite'
+T3_MANIFEST = HOME / '.t3' / 'userdata' / 'model-manifest.json'
 CLAUDE_SETTINGS = HOME / '.claude' / 'settings.json'
 CODEX_CONFIG = HOME / '.codex' / 'config.toml'
 SCRIPT = Path(__file__).resolve()
@@ -65,6 +67,7 @@ DEFAULTS = {
     'ntfy_topic': '',
     'phone_detail': True,
     'phone_project': False,
+    'relay_percent': 80,
 }
 # '🔔 할 일: 내용' 또는 줄 끝의 '🔔 할 일:'(다음 줄부터 목록). '🔔 할 일이 있습니다' 같은 문장은 표시로 보지 않는다.
 TODO = re.compile(r'🔔\s*할\s*일\s*(?:[:：]\s*(.*)|$)')
@@ -199,7 +202,14 @@ def from_claude(event):
     if name == 'Stop' and not event.get('stop_hook_active'):
         message = event.get('last_assistant_message') or last_assistant_text(event.get('transcript_path'))
         todo = find_todo(message)
-        return ('action', todo, project) if todo else None
+        if todo:
+            return 'action', todo, project
+        usage = context_usage(event.get('transcript_path'))
+        if usage and is_long(usage) and not seen_recently('relay|%s' % event.get('session_id'), 6 * 3600):
+            return 'action', '세션이 길어졌습니다(%s). /relay로 새 세션에서 이어갈 수 있습니다.' % tokens_text(usage[0]), project
+        return None
+    if name == 'PreCompact':
+        return 'action', '세션을 압축합니다. 지금까지 내용을 새 세션으로 옮기려면 /relay를 쓰세요.', project
     return None
 
 
@@ -233,7 +243,9 @@ def load_todos():
     except (OSError, ValueError):
         data = {}
     items = data.get('items') if isinstance(data, dict) else None
-    return {'items': [item for item in items or [] if isinstance(item, dict) and item.get('id')]}
+    relay = data.get('relay') if isinstance(data, dict) else None
+    return {'items': [item for item in items or [] if isinstance(item, dict) and item.get('id')],
+            'relay': {key: value for key, value in (relay or {}).items() if isinstance(value, dict)}}
 
 
 @contextmanager
@@ -323,18 +335,134 @@ def drop_items(data, test):
     data['items'] = [item for item in data['items'] if not test(item)]
 
 
-def replace_session_todos(data, session, texts, agent, project):
-    """응답이 끝난 세션의 항목을 그 응답의 할 일 목록으로 바꾼다. 같은 내용은 처음 생긴 시각을 그대로 둔다."""
+# 일을 하지 않는 명령(지침 새로고침, 압축)으로 시작한 차례. 응답에 할 일 표시가 없어도 목록을 비우지 않는다.
+META_TURN = re.compile(r'^\s*(?:<command-message>[^<]*</command-message>\s*)?(?:<command-name>)?[/$](?:refresh|compact)\b')
+
+
+def turn_prompt(path):
+    """이번 차례를 시작한 사용자 입력. 도구 결과와 스킬 본문(isMeta)은 건너뛴다. 읽지 못하면 ''."""
+    try:
+        with open(path, 'rb') as handle:
+            handle.seek(0, os.SEEK_END)
+            handle.seek(max(0, handle.tell() - 1024 * 1024))
+            chunk = handle.read().decode('utf-8', 'ignore')
+    except (OSError, TypeError, ValueError):
+        return ''
+    for line in reversed(chunk.splitlines()):
+        if '"user"' not in line:
+            continue
+        try:
+            item = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(item, dict) or item.get('type') != 'user' or item.get('isSidechain') or item.get('isMeta'):
+            continue
+        content = (item.get('message') or {}).get('content')
+        if isinstance(content, str):
+            return content
+        texts = [part.get('text', '') for part in content or [] if isinstance(part, dict) and part.get('type') == 'text']
+        if texts:
+            return '\n'.join(texts)
+    return ''
+
+
+def replace_session_todos(data, session, texts, agent, project, context=None, keep=False):
+    """응답이 끝난 세션의 항목을 그 응답의 할 일 목록으로 바꾼다. 같은 내용은 처음 생긴 시각을 그대로 둔다.
+    context가 (토큰, 창 크기)면 세션이 길어졌는지 보고 '새 세션으로 이어가기' 제안을 다시 넣는다.
+    keep이면(새로고침 같은 명령으로 시작한 차례) 할 일 표시가 없을 때 기존 할 일을 그대로 둔다."""
+    if keep and not texts:
+        t3 = t3_thread(session) if context or session in data['relay'] else ('', '')
+        relay_suggestion(data, session, t3, agent, project, context)
+        return
     old = {item.get('text'): item for item in data['items']
            if item.get('session') == session and item.get('kind') == 'action'}
     drop_items(data, lambda item: item.get('session') == session)
-    t3 = t3_thread(session) if texts else ('', '')
+    t3 = t3_thread(session) if texts or context or session in data['relay'] else ('', '')
+    relay_suggestion(data, session, t3, agent, project, context)
     for text in texts:
         body, recommend, choices = parse_todo(text)
         item = new_item('action', body, agent, project, session, t3, recommend=recommend, choices=choices)
         if item['text'] in old:
             item['id'], item['created'] = old[item['text']]['id'], old[item['text']]['created']
         add_items(data, [item])
+
+
+# --- 새 세션으로 이어가기(/relay) 제안 ----------------------------------------
+# 응답이 끝날 때 컨텍스트가 창의 relay_percent(기본 80%)를 넘었거나, 이 세션이 압축된 적이 있으면
+# 메뉴 막대에 '새 세션으로 이어가기' 할 일을 넣는다. '알아서 진행'을 누르면 그 세션이 /relay를 실행한다.
+# 완료로 지우면 다음 압축 전까지 다시 넣지 않는다. /relay가 원래 세션 제목 앞에 RELAYED를 붙이면 넣지 않는다.
+RELAYED = '(이어감)'
+
+
+def context_usage(path):
+    """(지금 컨텍스트 토큰, 창 크기). 기록의 마지막 응답 사용량으로 센다. 읽지 못하면 None."""
+    try:
+        with open(path, 'rb') as handle:
+            handle.seek(0, os.SEEK_END)
+            handle.seek(max(0, handle.tell() - 512 * 1024))
+            chunk = handle.read().decode('utf-8', 'ignore')
+    except (OSError, TypeError, ValueError):
+        return None
+    for line in reversed(chunk.splitlines()):
+        if '"usage"' not in line:
+            continue
+        try:
+            item = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(item, dict) or item.get('type') != 'assistant' or item.get('isSidechain'):
+            continue
+        message = item.get('message') or {}
+        usage = message.get('usage') or {}
+        tokens = sum(int(usage.get(key) or 0) for key in
+                     ('input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'))
+        if tokens:
+            return tokens, context_window(message.get('model'))
+    return None
+
+
+def context_window(model):
+    """모델의 컨텍스트 창 크기. T3 모델 목록(model-manifest.json)에서 찾고, 없으면 100만."""
+    name = re.sub(r'^claude-|-\d{8}$', '', str(model or '')).replace('[1m]', '')
+    try:
+        profiles = json.loads(T3_MANIFEST.read_text(encoding='utf-8'))['manifest']['providers']['claudeAgent']['profiles']
+        adapter = (profiles.get(name) or {}).get('adapter', {}).get('claudeCode', {})
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        adapter = {}
+    if adapter.get('fixedContextWindowTokens'):
+        return int(adapter['fixedContextWindowTokens'])
+    sizes = adapter.get('contextWindowTokens') or {}
+    if sizes:
+        return int(sizes.get('1m' if '[1m]' in str(model) else '200k') or max(sizes.values()))
+    return 1000000
+
+
+def is_long(usage):
+    tokens, window = usage
+    return bool(window) and tokens >= window * float(load_conf().get('relay_percent') or 80) / 100
+
+
+def tokens_text(tokens):
+    return '컨텍스트 약 %d만 토큰' % round(tokens / 10000) if tokens >= 10000 else '컨텍스트 %d토큰' % tokens
+
+
+def relay_suggestion(data, session, t3, agent, project, context):
+    """조건이 맞으면 이 세션의 '새 세션으로 이어가기' 할 일을 넣는다."""
+    state = data['relay'].get(session) or {}
+    if t3[1].startswith(RELAYED) or state.get('dismissed'):
+        return
+    if state.get('compacted'):
+        reason = '이 세션이 압축됐습니다(직전 %s)' % tokens_text(state.get('tokens') or 0)
+    elif context and is_long(context):
+        reason = '이 세션이 길어졌습니다(%s, 창의 %d%%)' % (tokens_text(context[0]), round(100 * context[0] / context[1]))
+    else:
+        return
+    item = new_item('action', reason + '. 새 세션으로 이어가기', agent, project, session, t3,
+                    recommend='/relay로 지금까지 내용을 정리해 새 세션을 만들고 거기서 이어가기')
+    item['id'] = hashlib.sha1(('relay:' + session).encode('utf-8')).hexdigest()[:8]
+    item['source'] = 'relay'
+    drop_items(data, lambda old: old['id'] == item['id'])
+    data['items'].append(item)
 
 
 def track_claude(event):
@@ -377,7 +505,14 @@ def track_claude(event):
             drop_items(data, lambda item: item.get('session') == session and item.get('kind') in WAITING_KINDS)
         elif name == 'Stop' and not event.get('stop_hook_active'):
             message = event.get('last_assistant_message') or last_assistant_text(event.get('transcript_path'))
-            replace_session_todos(data, session, find_todos(message), 'Claude', project)
+            replace_session_todos(data, session, find_todos(message), 'Claude', project,
+                                  context_usage(event.get('transcript_path')),
+                                  keep=bool(META_TURN.match(turn_prompt(event.get('transcript_path')))))
+        elif name == 'PreCompact':
+            tokens, window = context_usage(event.get('transcript_path')) or (0, 0)
+            data['relay'][session] = {'compacted': round(time.time(), 1), 'tokens': tokens,
+                                      'trigger': str(event.get('trigger') or '')}
+            relay_suggestion(data, session, t3_thread(session), 'Claude', project, (tokens, window))
 
 
 def track_codex(payload):
@@ -391,7 +526,9 @@ def track_codex(payload):
     project = Path(payload.get('cwd') or '').name
     with todo_store() as data:
         if kind == 'agent-turn-complete':
-            replace_session_todos(data, thread, find_todos(payload.get('last-assistant-message')), 'Codex', project)
+            inputs = [str(text) for text in payload.get('input-messages') or []]
+            replace_session_todos(data, thread, find_todos(payload.get('last-assistant-message')), 'Codex', project,
+                                  keep=bool(inputs) and all(META_TURN.match(text) for text in inputs))
         elif 'approval' in kind or 'question' in kind:
             found = from_codex(payload)
             add_items(data, [new_item(found[0], found[1], 'Codex', project, thread, t3_thread(thread))])
@@ -559,6 +696,9 @@ def todo_command(args):
                 else:
                     targets.add(arg)
             before = len(data['items'])
+            for item in data['items']:
+                if item['id'] in targets and item.get('source') == 'relay' and item.get('session'):
+                    data['relay'].setdefault(item['session'], {})['dismissed'] = True
             drop_items(data, lambda item: item['id'] in targets)
             removed = before - len(data['items'])
         print('%d개 지움' % removed)
@@ -669,7 +809,7 @@ def option(args, name, default=None):
 # --- 설치 ---------------------------------------------------------------
 
 HOOK_EVENTS = {'PreToolUse': 'AskUserQuestion', 'PermissionRequest': None, 'Notification': None, 'Stop': None,
-               'UserPromptSubmit': None, 'PostToolUse': None}
+               'UserPromptSubmit': None, 'PostToolUse': None, 'PreCompact': None}
 
 
 def hook_command(event=None):

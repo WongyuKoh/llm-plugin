@@ -47,7 +47,8 @@ T3 Code에서 Claude와 Codex가 함께 쓰는 작업 규칙(스킬), 슬래시 
 | `/setup [폴더] [설명]` | 주제를 정해 [작업]·[질문]·[테스트] 세션 구성. 범위 밖 요청은 막고 맞는 세션 안내 |
 | `/card [내용]` | 작업 카드 작성 |
 | `/handoff [작업\|테스트\|질문\|새] [할 일]` | 카드나 할 일을 맞는 세션에 넘기고 끝나면 알림 받기. 세션을 적지 않으면 할 일 종류로 고름 |
-| `/parallel [개수] [계획]` | 항목을 고칠 파일이 겹치지 않는 단위로 나눠 하위 세션 여러 개로 동시에 진행하고 PR 하나로 합치기 |
+| `/parallel [개수] [계획]` | 항목을 고칠 파일이 겹치지 않는 단위로 나눠 하위 세션 여러 개로 동시에 진행하고 PR 하나로 합치기. 다시 나눌 만큼 큰 단위는 `↳ 원래 세션 · 단위` 이름의 연계 세션으로 따로 만들어 그 안에서 다시 나눔 |
+| `/relay [바로 할 일]` | 세션이 길어지면 지금까지 내용을 인계해 새 세션을 만들고 이어가기. 컨텍스트가 창의 80%를 넘거나 압축되면 메뉴 막대에 제안이 뜸 |
 | `/qa [PR\|브랜치]` | 완료 조건 검증 |
 | `/progress [all]` | 다른 세션의 진행 상황과 질문 보기 |
 | `/sessions [일수]` | T3 밖(VS Code, 터미널, 앱, 스크립트)에서 실행한 세션 보기 |
@@ -64,7 +65,7 @@ T3 Code에서 Claude와 Codex가 함께 쓰는 작업 규칙(스킬), 슬래시 
 
 `/obsidian`과 `/minutes`는 전역 지침(`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`)에 적은 vault 위치를 씁니다. Codex는 `CLAUDE.local.md`를 자동으로 읽지 않으므로 전역 지침에 이 파일을 읽으라는 안내를 함께 둡니다.
 
-리뷰는 Claude Code 기본 명령 `/code-review`, 앱 실행 확인은 `/run`을 씁니다. Codex에서는 `$progress`처럼 `$`로 부릅니다. `/progress`, `/sessions`, `/eco`, `/parallel`, `/minutes`, `/obsidian`은 말로 요청해도 동작합니다. `/parallel`은 [작업] 세션이 고칠 파일이 다른 항목 여러 개를 맡으면 입력하지 않아도 씁니다. 나머지 명령은 입력할 때만 불러오므로 평소에는 토큰을 쓰지 않습니다.
+리뷰는 Claude Code 기본 명령 `/code-review`, 앱 실행 확인은 `/run`을 씁니다. 화면 디자인 검토와 다듬기는 외부 스킬 [Impeccable](https://impeccable.style)의 `/impeccable [명령] [대상]`을 씁니다. `npx impeccable install`로 따로 설치하며, 프로젝트마다 `/impeccable init`과 `/impeccable document`로 만든 `DESIGN.md`가 그 프로젝트의 디자인 기준이 됩니다. Codex에서는 `$progress`처럼 `$`로 부릅니다. `/progress`, `/sessions`, `/eco`, `/parallel`, `/relay`, `/minutes`, `/obsidian`은 말로 요청해도 동작합니다. `/parallel`은 [작업] 세션이 고칠 파일이 다른 항목 여러 개를 맡으면 입력하지 않아도 씁니다. 나머지 명령은 입력할 때만 불러오므로 평소에는 토큰을 쓰지 않습니다.
 
 ## 알림과 휴대폰
 

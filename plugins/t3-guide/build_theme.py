@@ -86,6 +86,7 @@ ICONS = {
     'leaf': '<path d="M5 19C5 10 11 5 19 5c0 8-5 14-14 14z"/><path d="M5 19l7-7"/>',
     'key': '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2.5 2.5"/>',
     'bell': '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+    'relay': '<path d="M5 4v8a3 3 0 0 0 3 3h11"/><path d="M15 11l4 4-4 4"/>',
     'book': '<path d="M4 5.5C6.5 4 9.5 4 12 6c2.5-2 5.5-2 8-.5V19c-2.5-1.5-5.5-1.5-8 .5-2.5-2-5.5-2-8-.5z"/><path d="M12 6v13.5"/>',
 }
 
@@ -96,6 +97,7 @@ GROUPS = [
         ('card', '/card', '작업 카드'),
         ('send', '/handoff', '작업 넘기기'),
         ('split', '/parallel', '나눠서 동시 진행'),
+        ('relay', '/relay', '새 세션으로 이어가기'),
         ('check', '/qa', '완료 조건 검증'),
         ('activity', '/progress', '진행·질문 보기'),
         ('history', '/sessions', 'T3 밖 세션'),
