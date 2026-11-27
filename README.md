@@ -55,12 +55,16 @@ T3 Code에서 Claude와 Codex가 함께 쓰는 작업 규칙(스킬), 슬래시 
 | `/pr [요점]` | 푸시, PR 생성과 감시 |
 | `/merge [PR]` | 체크·리뷰 확인 후 머지 |
 | `/note [주제]` | Obsidian 학습 노트 |
+| `/obsidian [폴더] [분류]` | 프로젝트 폴더를 Obsidian vault에 연결하고 세션이 처음부터 vault 규칙을 따르도록 `CLAUDE.local.md`에 지침 넣기. `.gitignore` 같은 저장소 파일 변경은 기본 브랜치(main)에 커밋. `/setup`으로 새 폴더를 만들면 자동 실행 |
+| `/minutes [transcript·메모] [주제]` | 회의 transcript와 직접 정리한 메모를 vault 회의록 양식으로 정리해 `docs/회의록/`에 저장 |
 | `/drive-reauth` | Obsidian 수집용 Google Drive 인증 다시 연결 |
 | `/close [settle]` | 세션 보관 또는 완료 정리 |
 | `/refresh [스킬 이름...]` | 열려 있는 세션이 지침과 스킬을 다시 읽어 최신 내용으로 따르기 |
 | `/eco [on\|off]` | 토큰 절약 모드 |
 
-리뷰는 Claude Code 기본 명령 `/code-review`, 앱 실행 확인은 `/run`을 씁니다. Codex에서는 `$progress`처럼 `$`로 부릅니다. `/progress`, `/sessions`, `/eco`, `/parallel`은 말로 요청해도 동작합니다. `/parallel`은 [작업] 세션이 고칠 파일이 다른 항목 여러 개를 맡으면 입력하지 않아도 씁니다. 나머지 명령은 입력할 때만 불러오므로 평소에는 토큰을 쓰지 않습니다.
+`/obsidian`과 `/minutes`는 전역 지침(`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`)에 적은 vault 위치를 씁니다. Codex는 `CLAUDE.local.md`를 자동으로 읽지 않으므로 전역 지침에 이 파일을 읽으라는 안내를 함께 둡니다.
+
+리뷰는 Claude Code 기본 명령 `/code-review`, 앱 실행 확인은 `/run`을 씁니다. Codex에서는 `$progress`처럼 `$`로 부릅니다. `/progress`, `/sessions`, `/eco`, `/parallel`, `/minutes`, `/obsidian`은 말로 요청해도 동작합니다. `/parallel`은 [작업] 세션이 고칠 파일이 다른 항목 여러 개를 맡으면 입력하지 않아도 씁니다. 나머지 명령은 입력할 때만 불러오므로 평소에는 토큰을 쓰지 않습니다.
 
 ## 알림과 휴대폰
 

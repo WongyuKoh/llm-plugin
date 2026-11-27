@@ -29,7 +29,8 @@ T3 Code에서 질문, 작업, 테스트를 별도 세션으로 나누어 진행�
 2. 프로젝트 기본 모델(T3 화면에서 새 스레드를 만들 때 처음 선택되는 모델)을 [작업] 모델로 지정한다. T3는 이 값을 `~/.t3/userdata/settings.json`의 `projectSettingsOverrides.<projectId>.defaultModelSelection`에서 읽는다. 파일을 백업하고 JSON으로 읽어 이 키만 더한 뒤, `t3_project_read`의 `defaultModelSelection`에 그 모델이 보이면 적용된 것이다. `t3_project_update`의 `defaultModelSelection`은 프로젝트 기록에만 저장되어 새 스레드에 쓰이지 않는다(T3 0.1.11, `projectSettingsFolded: true`, 2026-11-25 확인).
 3. 제목은 주제가 있으면 `[역할] <주제>`, 없으면 `[역할] <프로젝트>`로 한다. `t3_thread_list`(`titleContains`)로 같은 제목의 세션이 있는지 보고, 없는 역할만 `t3_thread_launch`로 표의 모델과 `message` 없이 만든다.
 4. 세 세션의 `link`를 모은 뒤, 새로 만든 세션마다 `t3_thread_send`(`mode: "queue"`)로 아래 범위 메시지를 보낸다. 받은 세션은 한 줄로만 답하므로 세션마다 짧은 응답 한 번의 토큰이 든다.
-5. 세션 link, 역할, 모델, 범위를 표로 알린다.
+5. 폴더를 새로 만들었으면 `obsidian` 스킬로 Obsidian vault에 연결한다. 기존 폴더는 연결돼 있지 않을 때만 연결할지 한 번 묻는다.
+6. 세션 link, 역할, 모델, 범위를 표로 알린다.
 
 ````text
 [세션 범위] 프로젝트: <프로젝트> · 역할: <[작업]|[질문]|[테스트]> · 주제: <설명, 없으면 "역할 범위만">
