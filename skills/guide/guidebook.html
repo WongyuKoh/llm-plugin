@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스킬 가이드북</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  /* 스크롤 막대는 숨긴다. 트랙패드와 마우스 휠로는 그대로 스크롤된다. */
+  html, .dialog { scrollbar-width: none; }
+  ::-webkit-scrollbar { display: none; }
+  body { margin: 0; font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif); color: var(--foreground); }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 4px 2px 14px; }
+  .head h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  .head p { margin: 0; font-size: 12.5px; color: var(--muted-foreground); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+  .col { display: grid; gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius, 12px); padding: 6px 0; }
+  .card h2 { font-size: 11.5px; font-weight: 500; color: var(--muted-foreground); margin: 6px 16px 4px; display: flex; justify-content: space-between; }
+  .row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 7px 16px; border: 0; background: none; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+  .row:hover, .row:focus-visible { background: var(--accent); outline: none; }
+  .row svg { width: 16px; height: 16px; flex: none; color: var(--muted-foreground); }
+  .row .name { flex: none; }
+  .row .desc { margin-left: auto; color: var(--muted-foreground); font-size: 12.5px; text-align: right; }
+  .row .chev { width: 14px; height: 14px; }
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, 0.45); }
+  .overlay.open { display: flex; }
+  .dialog { width: min(560px, 100%); max-height: calc(100% - 16px); overflow: auto; background: var(--popover, var(--card)); color: var(--popover-foreground, var(--foreground)); border: 1px solid var(--border); border-radius: var(--radius, 12px); padding: 18px 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
+  .dialog header { display: flex; align-items: center; gap: 10px; }
+  .dialog header svg { width: 18px; height: 18px; color: var(--muted-foreground); }
+  .dialog h3 { margin: 0; font: 600 16px var(--font-mono, ui-monospace, monospace); }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted-foreground); white-space: nowrap; }
+  .badge.safe { color: var(--success, #22c55e); border-color: currentColor; }
+  .badge.care { color: var(--warning, #f59e0b); border-color: currentColor; }
+  .x { margin-left: auto; border: 0; background: none; color: var(--muted-foreground); font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+  .x:hover { background: var(--accent); }
+  .summary { margin: 10px 0 4px; font-size: 13.5px; line-height: 1.6; }
+  .sec { margin-top: 14px; }
+  .sec h4 { margin: 0 0 6px; font-size: 11.5px; font-weight: 500; color: var(--muted-foreground); }
+  .sec p, .sec li { font-size: 13px; line-height: 1.6; margin: 0; }
+  .sec ol { margin: 0; padding-left: 18px; }
+  code, .ex code { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12.5px; }
+  .ex { display: flex; align-items: center; gap: 8px; background: var(--code-background, var(--muted)); border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px 7px 12px; margin-bottom: 6px; }
+  .ex code { flex: 1; word-break: break-all; }
+  .ex .note { display: block; color: var(--muted-foreground); font-family: var(--font-sans); font-size: 12px; margin-top: 2px; }
+  .copy { flex: none; font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: inherit; cursor: pointer; }
+  .copy:hover { background: var(--accent); }
+  .care-box { margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 12.5px; line-height: 1.55; background: var(--warning-surface, rgba(245, 158, 11, 0.12)); }
+  .nav { display: flex; justify-content: space-between; margin-top: 16px; }
+  .nav button { font: inherit; font-size: 12.5px; border: 1px solid var(--border); background: none; color: inherit; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+  .nav button:hover { background: var(--accent); }
+  /* 실행 모습 애니메이션(항목의 demo). 움직임 줄이기 설정이면 마지막 장면만 보여 준다. */
+  .demo-head { display: flex; align-items: center; justify-content: space-between; }
+  .replay { font: inherit; font-size: 11.5px; border: 1px solid var(--border); background: none; color: var(--muted-foreground); border-radius: 6px; padding: 1px 8px; cursor: pointer; }
+  .replay:hover { background: var(--accent); color: var(--foreground); }
+  .demo { border: 1px solid var(--border); border-radius: 10px; background: var(--code-background, var(--muted)); padding: 12px 14px; font-size: 12.5px; }
+  .demo .say { display: flex; align-items: center; gap: 8px; min-height: 20px; font-family: var(--font-mono, ui-monospace, monospace); }
+  .demo .say .who { font-family: var(--font-sans); font-size: 11px; color: var(--muted-foreground); }
+  .demo .caret { display: inline-block; width: 7px; height: 14px; margin-left: -6px; background: currentColor; opacity: 0.6; animation: demo-blink 1s steps(1) infinite; }
+  @keyframes demo-blink { 50% { opacity: 0; } }
+  .demo .lines { display: grid; gap: 8px; margin-top: 10px; }
+  .demo .d-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; }
+  .demo .d-muted { color: var(--muted-foreground); text-align: right; }
+  .demo .d-status { min-width: 18px; text-align: center; font-size: 12px; }
+  .demo .d-kv { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; }
+  .demo .d-kv .d-muted { text-align: left; }
+  .demo .d-code { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); }
+  .demo .d-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted-foreground); }
+  .demo .d-note { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); }
+  .demo .d-note ul { margin: 4px 0 0; padding-left: 18px; }
+  .demo .d-note li { font-size: 12.5px; line-height: 1.6; }
+  .demo .unit { display: grid; grid-template-columns: minmax(0, 1fr) auto 72px 16px; align-items: center; gap: 10px; }
+  .demo .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted-foreground); white-space: nowrap; }
+  .demo .tag.me { color: var(--foreground); }
+  .demo .bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+  .demo .bar i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--success, #22c55e); transition-property: width; transition-timing-function: linear; }
+  .demo .done { font-size: 12px; opacity: 0; transition: opacity 0.25s; }
+  .demo .done.on { opacity: 1; }
+  .demo .chip { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--foreground); }
+  .demo .chip.pr { color: var(--success, #22c55e); border-color: currentColor; }
+  .demo .appear { opacity: 0; transform: translateY(4px); transition: opacity 0.3s ease, transform 0.3s ease; }
+  .demo .appear.on { opacity: 1; transform: none; }
+  .steps { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted-foreground); }
+  .steps span { padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; transition: color 0.2s, border-color 0.2s; }
+  .steps span.on { color: var(--foreground); border-color: var(--border); background: var(--card); }
+  /* T3 대화 화면(html_render) 밖, 예: 미리보기 패널에서 열 때는 T3 기본 테마 색을 직접 쓴다. */
+  html.standalone { --foreground: #27272a; --muted-foreground: #71717b; --card: #ffffff; --popover: #ffffff; --border: #e4e4e7;
+    --accent: #f4f4f5; --code-background: #fafafa; --muted: #fafafa; --success: #16a34a; --warning: #bb4d00; --radius: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif; --font-mono: ui-monospace, Menlo, monospace; }
+  html.standalone body { background: #fcfcfc; padding: 16px; }
+  html.native body { padding-top: 40px; }
+  @media (prefers-color-scheme: dark) {
+    html.standalone { --foreground: #f5f5f5; --muted-foreground: #818181; --card: #111111; --popover: #111111; --border: #191919;
+      --accent: #141414; --code-background: #111111; --muted: #111111; --success: #22c55e; --warning: #ffb900; }
+    html.standalone body { background: #0a0a0a; }
+  }
+</style>
+</head>
+<body>
+<script>
+if (!getComputedStyle(document.documentElement).getPropertyValue('--foreground').trim()) document.documentElement.classList.add('standalone');
+const NATIVE = !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.guide);
+if (NATIVE) document.documentElement.classList.add('native');
+</script>
+<div class="head">
+  <h1>📘 내 스킬 가이드북</h1>
+  <p>항목을 누르면 실행 모습·설명·예시·시험 방법이 열립니다. Claude는 <code>/</code>, Codex는 <code>$</code>로 입력합니다.</p>
+</div>
+<div class="grid" id="grid"></div>
+<div class="overlay" id="overlay" role="dialog" aria-modal="true"><div class="dialog" id="dialog"></div></div>
+
+<script>
+const ICONS = {
+  layout: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
+  card: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+  send: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  split: '<path d="M3 12h5l4-6h7M8 12l4 6h7"/><path d="M16 3l3 3-3 3M16 15l3 3-3 3"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 9.5"/>',
+  activity: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  history: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  commit: '<circle cx="12" cy="12" r="3.5"/><path d="M3 12h5.5M15.5 12H21"/>',
+  pr: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M6 8.5v7M18 15.5V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"/>',
+  merge: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3.5-3 4.5-9.5 5.5"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.3-4.3"/>',
+  play: '<path d="M7 5v14l11-7z"/>',
+  note: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  archive: '<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/>',
+  leaf: '<path d="M5 19C5 10 11 5 19 5c0 8-5 14-14 14z"/><path d="M5 19l7-7"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2.5 2.5"/>',
+  bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+  shield: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/>',
+  chev: '<path d="M9 6l6 6-6 6"/>'
+};
+const svg = (name, cls) => `<svg class="${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+
+const ITEMS = [
+  { group: '작업 흐름', cmd: '/setup', icon: 'layout', short: '주제별 세션 3개', safety: 'care',
+    summary: '프로젝트 폴더에 [작업]·[질문]·[테스트] 세션을 만들고 세션마다 모델을 지정합니다. 설명(주제)을 주면 세 세션이 그 주제와 자기 역할의 요청만 처리하고, 나머지는 막은 뒤 맞는 세션을 안내합니다.',
+    when: '새 프로젝트나 새 기능을 시작할 때. 주제마다 따로 만들 수 있습니다.',
+    usage: '/setup [폴더 경로] [설명]  — 경로가 없으면 현재 프로젝트, 설명이 없으면 역할 범위만',
+    examples: [['/setup 로그인 기능 개발', '현재 프로젝트에 "로그인 기능 개발" 세션 3개'], ['/setup ~/Desktop/setup-test 시험 주제', '시험용 폴더(없으면 만듦)'], ['/setup', '주제 없이 역할만']],
+    result: '세션 링크·역할·모델·범위 표. 작업 Opus 5.5/high, 질문·테스트 Sonnet 5.5/medium. 세션마다 범위 메시지에 한 줄로 답하므로 짧은 응답 한 번의 토큰이 듭니다. 같은 주제의 세션이 있으면 "기존"으로 표시합니다.',
+    test: ['/setup ~/Desktop/setup-test 시험 주제 를 입력합니다.', '[질문] 시험 주제 세션에서 주제와 상관없는 질문을 해 막히는지 봅니다.', '"범위 밖이어도 진행"이라고 하면 그 요청만 풀리는지 봅니다.', '확인 후 T3에서 setup-test 프로젝트를 지웁니다.'],
+    caution: 'T3에 프로젝트와 세션이 실제로 생기고, 세션마다 짧은 응답 한 번의 토큰이 듭니다.' },
+  { group: '작업 흐름', cmd: '/card', icon: 'card', short: '작업 카드', safety: 'safe',
+    summary: '요청을 목표·범위·순서·완료 조건·위험이 담긴 작업 카드로 정리합니다. 구현은 시작하지 않습니다.',
+    when: '[질문] 세션에서 할 일을 정리해 [작업]에 넘기기 전.',
+    usage: '/card [작업 내용]  — 비우면 지금까지의 대화를 정리',
+    examples: [['/card 로그인 화면에 비밀번호 보기 버튼 추가', ''], ['/card', '대화 내용을 카드로']],
+    result: '작업 카드 하나. 완료 조건을 정할 수 없으면 카드 끝에 질문이 붙습니다.',
+    test: ['아무 세션에서 /card 와 간단한 요청을 입력합니다.', '파일은 바뀌지 않으니 결과 카드만 확인합니다.'] },
+  { group: '작업 흐름', cmd: '/handoff', icon: 'send', short: '작업 넘기기', safety: 'care',
+    summary: '작업 카드뿐 아니라 어떤 일이든(구현, 수정, 조사, 검증, 문서, 질문 답변) 다른 세션에 넘기고, 끝나거나(✅) 질문이 생기거나(❓) 막히면(⚠️) 이 세션으로 알림을 받습니다. 받을 세션을 적지 않으면 할 일 종류(바꾸는 일은 [작업], 확인만 하는 일은 [테스트], 알아보는 일은 [질문])와 주제로 고릅니다.',
+    when: '지금 세션에서 하지 않고 다른 세션에 맡기고 싶은 일이 생겼을 때.',
+    usage: '/handoff [작업|테스트|질문|새|"세션 제목"] [할 일]  — 세션을 적지 않으면 자동으로 고르고, 할 일을 적지 않으면 최근 카드나 남은 일을 넘김',
+    examples: [['/handoff 로그인 오류 고치기', '자동: 코드 수정이라 [작업]'], ['/handoff 소셜 로그인 지원 범위 조사', '자동: 알아보는 일이라 [질문]'],
+      ['/handoff PR 12 완료 조건 확인', '자동: 확인만 하는 일이라 [테스트]'], ['/handoff 질문 이 오류 원인만 찾아 줘', '[질문]으로 지정'],
+      ['/handoff 새 README 오타 정리', '새 세션을 만들어 넘김'], ['/handoff', '최근 작업 카드나 남은 일을 자동으로']],
+    result: '받는 세션의 링크와 고른 이유가 나오고, 받은 세션이 일을 시작합니다. 끝나면 이 세션에 "## ✅ 완료 · …" 알림이 옵니다.',
+    test: ['/setup 으로 세션을 만든 프로젝트에서 /handoff README에 오타가 있는지만 찾아 보고하기(수정 없음) 를 입력합니다.', '알아보는 일이라 [질문] 세션이 골라지는지 봅니다.', '[질문] 세션이 끝나면 이 세션에 알림이 오는지 봅니다.'],
+    caution: '받은 세션이 실제로 작업하며 토큰을 씁니다. Codex로 만든 역할 세션은 다른 세션이 보낸 지시를 따르지 않을 수 있습니다.' },
+  { group: '작업 흐름', cmd: '/parallel', icon: 'split', short: '나눠서 동시 진행', safety: 'care',
+    summary: '맡은 항목을 고칠 파일이 겹치지 않는 단위로 나눠 하위 세션 여러 개(각자 worktree)가 동시에 구현하고, 이 세션이 한 브랜치로 합쳐 PR 하나로 만듭니다. 요청이 여러 주제에 걸치면 주제별 하위 세션에 넘기고, 주제 세션 안에서도 이렇게 나눕니다.',
+    when: '[작업] 세션이 고칠 파일이 다른 항목 여러 개를 맡았을 때. 입력하지 않아도 [작업] 세션이 스스로 씁니다.',
+    usage: '/parallel [최대 개수] [계획]  — 기본 최대 4개, 계획이면 나눈 표만 보여 줌',
+    examples: [['/parallel', '최대 4개로 나눠 바로 진행'], ['/parallel 계획', '나눈 표만 보고 멈춤'], ['/parallel 2', '하위 세션 최대 2개']],
+    result: '단위·맡은 항목·고칠 파일·브랜치·담당 표 → 하위 세션이 동시에 구현 → 단위 브랜치를 합친 PR 하나와 단위별 결과 표.',
+    test: ['고칠 파일이 다른 작은 항목 두세 개를 [작업] 세션에 맡기고 /parallel 계획 을 입력합니다.', '표의 단위끼리 고칠 파일이 겹치지 않는지 봅니다. 이 단계에서는 파일이 바뀌지 않습니다.', '/parallel 을 입력해 하위 세션이 생기고, 끝난 뒤 한 브랜치로 합쳐지는지 봅니다.'],
+    caution: '하위 세션마다 토큰과 이 Mac의 자원(의존성 설치, 개발 서버)이 듭니다. 토큰 절약 모드에서는 나누지 않습니다.' },
+  { group: '작업 흐름', cmd: '/qa', icon: 'check', short: '완료 조건 검증', safety: 'safe',
+    summary: '작업 카드나 PR 본문의 완료 조건을 실제로 실행해 통과(✅)·실패(❌)·실행 못 함(⏭)을 표로 보여 줍니다. 기능 코드는 고치지 않습니다.',
+    when: '[테스트] 세션에서 PR이나 브랜치를 확인할 때.',
+    usage: '/qa [PR 번호|브랜치]  — 비우면 현재 브랜치',
+    examples: [['/qa', '현재 브랜치'], ['/qa 12', 'PR 12']],
+    result: '조건별 결과와 근거(명령, 출력 요약). 넘겨받은 일이면 메인 세션에 알림.',
+    test: ['테스트가 있는 저장소에서 /card 로 완료 조건을 정합니다(예: npm test 통과).', '/qa 를 입력해 표를 확인합니다.'] },
+  { group: '작업 흐름', cmd: '/progress', icon: 'activity', short: '진행·질문 보기', safety: 'safe',
+    summary: '같은 프로젝트의 다른 세션과 하위 세션의 상태, 최근 내용, 답이 필요한 질문을 표로 보여 줍니다. 읽기만 합니다.',
+    when: '넘긴 작업이 어디까지 됐는지 볼 때. 말로 "진행 상황 보여줘"라고 해도 됩니다.',
+    usage: '/progress [all]  — all이면 모든 프로젝트',
+    examples: [['/progress', ''], ['/progress all', '모든 프로젝트']],
+    result: '세션·상태(🟢 실행 중, ❓ 입력 대기, ✅ 완료 …)·최근 내용·갱신 시각 표.',
+    test: ['지금 이 세션에서 /progress 를 입력합니다. 아무것도 바뀌지 않습니다.'] },
+  { group: '작업 흐름', cmd: '/sessions', icon: 'history', short: 'T3 밖 세션', safety: 'safe',
+    summary: 'VS Code, 터미널, Claude 앱, Codex 앱, 스크립트에서 실행한 세션을 이 Mac의 기록에서 찾아 이어서 여는 명령과 함께 보여 줍니다. T3는 이런 세션을 가져오지 않습니다.',
+    when: 'T3 밖에서 하던 작업을 찾을 때.',
+    usage: '/sessions [일수]  — 기본 3일',
+    examples: [['/sessions', ''], ['/sessions 7', '최근 7일']],
+    result: '마지막 기록·출처·폴더·첫 요청·이어서 하기(claude --resume …, codex resume …) 표. 실행 중인지는 알 수 없습니다.',
+    test: ['지금 /sessions 를 입력합니다. 기록만 읽습니다.'] },
+  { group: 'Git · 기록', cmd: '/commit', icon: 'commit', short: '커밋', safety: 'care',
+    summary: '변경을 확인해 이번 작업 파일만 골라 커밋합니다. 기본 브랜치면 작업 브랜치를 먼저 만들고, 푸시는 하지 않습니다. AI 홍보 문구와 Obsidian 내용은 넣지 않습니다.',
+    when: '작업 단위가 끝났을 때.',
+    usage: '/commit [메시지 요점]',
+    examples: [['/commit', ''], ['/commit 로그인 오류 수정', '']],
+    result: '커밋한 파일과 커밋 해시.',
+    test: ['시험용 저장소에서 파일 하나를 고친 뒤 /commit 을 입력합니다.'],
+    caution: '저장소에 실제 커밋이 생깁니다(되돌리려면 git reset).' },
+  { group: 'Git · 기록', cmd: '/pr', icon: 'pr', short: 'PR 만들기·감시', safety: 'care',
+    summary: '필요하면 커밋한 뒤 푸시하고 PR을 만들어, CI 실패·리뷰 코멘트·충돌을 지켜보며 대응합니다.',
+    when: '작업을 리뷰받거나 합칠 준비가 됐을 때.',
+    usage: '/pr [PR에 넣을 요점]',
+    examples: [['/pr', ''], ['/pr 화면 확인 방법을 본문에 포함', '']],
+    result: 'PR 링크. 넘겨받은 일이면 메인 세션에 ✅ 알림.',
+    test: ['비공개 시험용 저장소에서만 시험하세요.'],
+    caution: '원격 저장소에 푸시하고 PR을 만듭니다. 공개 저장소면 내용이 공개됩니다.' },
+  { group: 'Git · 기록', cmd: '/merge', icon: 'merge', short: '확인 후 머지', safety: 'care',
+    summary: 'PR의 체크·리뷰·충돌·초안 여부를 확인하고 문제가 없을 때만 머지합니다. 하나라도 문제가 있으면 머지하지 않고 이유를 알립니다.',
+    when: 'PR 검증이 끝나 합칠 때.',
+    usage: '/merge [PR 번호]  — 비우면 이 세션의 PR',
+    examples: [['/merge', ''], ['/merge 12', '']],
+    result: '머지 결과. 감시하던 PR이면 감시를 끕니다.',
+    test: ['시험용 저장소의 시험 PR에서만 시험하세요.'],
+    caution: '머지는 되돌리기 어렵습니다.' },
+  { group: 'Git · 기록', cmd: '/code-review', icon: 'search', short: '리뷰 (기본 명령)', safety: 'safe',
+    summary: 'Claude Code에 들어 있는 기본 리뷰 명령입니다. 현재 변경이나 PR을 검토합니다. 이 저장소에서 만든 것은 아닙니다.',
+    when: '커밋·PR 전에 문제를 찾을 때.',
+    usage: '/code-review [수준] [PR 번호|브랜치]',
+    examples: [['/code-review', '현재 변경'], ['/code-review high 12', 'PR 12를 꼼꼼하게']],
+    result: '발견한 문제 목록.',
+    test: ['변경이 있는 저장소에서 /code-review 를 입력합니다. 파일은 바뀌지 않습니다.'] },
+  { group: 'Git · 기록', cmd: '/note', icon: 'note', short: '학습 노트', safety: 'care',
+    summary: '이 세션의 작업을 Obsidian 학습 노트로 정리해 vault에 저장합니다. vault 지침을 먼저 읽고, 저장소·커밋·PR에는 노트 내용을 넣지 않습니다.',
+    when: '작업이나 머지가 끝나 배운 것을 남길 때.',
+    usage: '/note [주제]  — 비우면 이 세션의 작업',
+    examples: [['/note', ''], ['/note T3 테마로 화면 확장하기', '']],
+    result: '만들거나 고친 노트 경로. 저장할 수 없으면 붙여 넣을 초안.',
+    test: ['/note 시험 노트 를 입력하고, 알려 준 경로에 노트가 생겼는지 봅니다.', '확인 후 노트를 지우면 됩니다.'],
+    caution: 'vault에 노트 파일이 실제로 생깁니다.' },
+  { group: 'Git · 기록', cmd: '/minutes', icon: 'mic', short: '회의록', safety: 'care',
+    summary: '회의 transcript와 직접 정리한 메모를 Obsidian vault의 회의록 양식에 맞춰 정리하고 현재 프로젝트의 docs/회의록/에 저장합니다. 메모 속 내 의견은 작성자 메모로 구분하고, 녹취와 메모가 다르면 미결 사항에 양쪽을 적습니다. 입력에 없는 참석자·날짜·담당자는 미확인으로 둡니다.',
+    when: '회의 녹취나 내가 정리한 메모를 회의록으로 남길 때.',
+    usage: '/minutes [transcript·메모 파일 경로...] [회의 주제]  — 글을 붙여 넣어도 됩니다',
+    examples: [['/minutes ~/Downloads/meeting.txt', '녹취 파일로'], ['/minutes ~/Downloads/meeting.txt ~/notes/주간회의.md 주간 회의', '녹취와 메모 함께'], ['/minutes 주간 회의', '이어서 메모 붙여 넣기']],
+    result: '저장한 회의록 경로, 결정·할 일 개수, 미확인으로 남긴 값.',
+    test: ['짧은 시험 대화를 붙여 넣고 /minutes 시험 회의 를 입력합니다.', 'docs/회의록/에 생긴 파일이 vault 양식과 같은지 보고 지우면 됩니다.'],
+    caution: '프로젝트 폴더에 파일이 생깁니다. 공개 저장소라면 커밋하기 전에 확인하세요.' },
+  { group: 'Git · 기록', cmd: '/close', icon: 'archive', short: '세션 정리', safety: 'care',
+    summary: '현재 T3 세션을 보관(archive)합니다. settle을 주면 완료 목록으로 정리합니다. 실행 중인 하위 작업이 있으면 먼저 묻습니다.',
+    when: '세션의 일이 끝났을 때.',
+    usage: '/close [settle]',
+    examples: [['/close', '보관'], ['/close settle', '완료 목록으로']],
+    result: '정리 결과 한 줄.',
+    test: ['시험용 세션에서 /close settle 을 입력하고, 목록에서 완료로 옮겨졌는지 봅니다.'],
+    caution: '이 세션이 목록에서 정리됩니다. 보관함에서 다시 꺼낼 수 있습니다.' },
+  { group: '설정 · 알림', cmd: '/obsidian', icon: 'link', short: 'Obsidian 연결', safety: 'care',
+    summary: '프로젝트 폴더에 docs/와 docs/회의록/을 만들고 Obsidian vault에 문서 폴더 링크를 겁니다. CLAUDE.local.md에 vault 지침을 넣어 그 폴더의 Claude·Codex 세션이 처음부터 vault 규칙을 따르게 합니다. .gitignore 같은 저장소 파일 변경은 지금 브랜치가 아니라 기본 브랜치(main)에 커밋합니다.',
+    when: '새 프로젝트 폴더를 만들었을 때. /setup으로 새 폴더를 만들면 자동으로 실행됩니다.',
+    usage: '/obsidian [폴더 경로] [분류]  — 비우면 현재 프로젝트, 분류는 물어봅니다',
+    examples: [['/obsidian', '현재 프로젝트'], ['/obsidian ~/Desktop/mydrive/project/new-app 개인', '폴더와 분류 지정']],
+    result: '만든 폴더·파일, vault 안 링크 위치, 고친 vault 문서.',
+    test: ['빈 시험 폴더에서 /obsidian 을 입력하고, vault 프로젝트 폴더에 링크가 생겼는지 봅니다.', '확인 후 링크와 연결 안내의 행을 지우면 됩니다.'],
+    caution: 'vault에 링크가 생기고 연결 안내·허브 문서가 바뀝니다.' },
+  { group: '설정 · 알림', cmd: '/eco', icon: 'leaf', short: '절약 모드', safety: 'safe',
+    summary: '토큰 절약 모드입니다. 모델은 그대로 두고 effort만 low로 낮추며, 탐색·도구 출력·응답 길이를 줄입니다. 끌 때까지 이 세션에서 유지됩니다.',
+    when: '가볍게 묻거나 비용을 아끼고 싶을 때.',
+    usage: '/eco [on|off]',
+    examples: [['/eco', '켜기'], ['/eco off', '끄기']],
+    result: '바뀐 effort와 원래 값 한 줄.',
+    test: ['/eco 로 켠 뒤 /eco off 로 끕니다. 원래 effort로 돌아옵니다.'] },
+  { group: '설정 · 알림', cmd: '/drive-reauth', icon: 'key', short: 'Drive 재인증', safety: 'care',
+    summary: 'Obsidian 수집용 Google Drive 인증을 다시 연결합니다. 이 Mac의 브라우저에서 Google 로그인이 필요하고, 끝나면 동기화를 한 번 실행해 확인합니다.',
+    when: '만료 하루 전 알림이 왔을 때(7일마다).',
+    usage: '/drive-reauth',
+    examples: [['/drive-reauth', '']],
+    result: '로그인 안내 후 동기화 결과(created·duplicate …).',
+    test: ['알림이 왔을 때만 실행하세요. 실행하면 로그인 창이 열립니다.'],
+    caution: '이 Mac에서만 동작합니다. 브라우저 로그인 전까지 명령이 기다립니다.' },
+  { group: '설정 · 알림', cmd: '할 일 알림', icon: 'bell', short: '휴대폰 · Mac', safety: 'safe',
+    summary: '응답 마지막 줄이 "🔔 할 일: …"이거나, 질문·승인 요청이 생기거나, Drive 동기화가 계속 실패하면 이 Mac(소리)과 휴대폰(ntfy)으로 알립니다. 명령이 아니라 자동으로 동작합니다.',
+    when: '자리를 비운 사이 내가 할 일이 생겼을 때.',
+    usage: '자동 — 설정: ~/.config/llm-plugin/notify.json',
+    examples: [['/usr/bin/python3 "$(dirname "$(dirname "$(readlink ~/.claude/skills/guide)")")/plugins/notify/notify.py" test', '터미널에서 시험 알림 보내기(저장소 위치를 자동으로 찾음)']],
+    result: 'Mac 알림(소리)과 휴대폰 ntfy 알림. 휴대폰에는 프로젝트 이름을 넣지 않습니다.',
+    test: ['터미널에서 위 예시를 실행해 두 곳에 알림이 오는지 봅니다.'] },
+  { group: '자동 규칙', cmd: 'session-focus', icon: 'shield', short: '세션 목적·주제', safety: 'rule',
+    summary: '세션을 시작할 때 이름과 목적을 제안하고, 주제가 벗어나면 이어서 할지·세션을 나눌지 묻습니다. /setup으로 범위가 정해진 역할 세션에서는 범위 밖 요청을 막고 맞는 세션을 안내합니다.',
+    when: '항상(이 저장소의 CLAUDE.md).', usage: '자동', examples: [], result: '응답 앞부분의 세션 이름 제안.', test: [] },
+  { group: '자동 규칙', cmd: 'clear-response', icon: 'shield', short: '한국어·사실·가독성', safety: 'rule',
+    summary: '한국어로 결론부터 답하고, 확인한 사실과 맞을 때만 맞다고 합니다. 유도 질문에도 근거가 같으면 결론을 바꾸지 않습니다. 보내기 전에 가독성을 점검해 여러 항목은 한 줄에 하나씩 목록으로 씁니다.',
+    when: '항상.', usage: '자동', examples: [], result: '결과·확인·할 일·남은 문제로 정리된 답.', test: [] },
+  { group: '자동 규칙', cmd: 'dev-flow', icon: 'shield', short: '개발 흐름', safety: 'rule',
+    summary: '세션 역할과 모델, 작업 카드, 하위 세션 알림 규칙입니다. /setup, /card, /handoff, /parallel, /qa가 이 규칙을 따릅니다.',
+    when: '세션 구성이나 작업 인계를 말로 요청할 때도.', usage: '자동', examples: [], result: '', test: [] },
+  { group: '자동 규칙', cmd: 'review-learning', icon: 'shield', short: '리뷰·커밋 규칙', safety: 'rule',
+    summary: '리뷰·PR·커밋을 실제 diff와 테스트에 근거해 쓰고, Obsidian 노트 내용은 저장소에 넣지 않습니다.',
+    when: '리뷰·PR·커밋 작업.', usage: '자동', examples: [], result: '', test: [] },
+  { group: '자동 규칙', cmd: 'document-writing', icon: 'shield', short: '문서 작성', safety: 'rule',
+    summary: '문서의 독자와 근거를 확인하고, 기존 문서 형식을 따라 확인한 사실만 씁니다.',
+    when: '문서 작성·수정.', usage: '자동', examples: [], result: '', test: [] },
+  { group: '자동 규칙', cmd: 't3-session-workflow', icon: 'shield', short: 'T3 세션 관리', safety: 'rule',
+    summary: '세션 상태를 실제 T3 도구로 확인하고, "종료"는 보관, "완료 목록 정리"는 settle로 구분합니다.',
+    when: 'T3 세션 확인·종료·재연결.', usage: '자동', examples: [], result: '', test: [] }
+];
+const LAYOUT = [['작업 흐름', '설정 · 알림'], ['Git · 기록', '자동 규칙']];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+
+function renderList() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = LAYOUT.map(groups => '<div class="col">' + groups.map(g =>
+    `<div class="card"><h2><span>${g}</span>${g === '작업 흐름' ? '<span>항목을 눌러 보세요</span>' : ''}</h2>` +
+    ITEMS.map((it, i) => it.group !== g ? '' :
+      `<button class="row" data-i="${i}">${svg(it.icon)}<span class="name">${esc(it.cmd)}</span><span class="desc">${esc(it.short)}</span>${svg('chev', 'chev')}</button>`
+    ).join('') + '</div>').join('') + '</div>').join('');
+  grid.querySelectorAll('.row').forEach(b => b.addEventListener('click', () => openItem(+b.dataset.i)));
+}
+
+// 실행 모습 애니메이션. 명령마다 입력 한 줄과 장면 몇 개를 적는다. 팝업을 열 때 한 번 재생하고 '다시 보기'로 다시 튼다.
+// 장면: [설명, 줄...]. 줄 종류: row [이름, 값, 상태], kv [항목, 내용], say [문장], code [명령], chips [[글자, 'ok'|'plain'], ...],
+// note [제목, '항목: 내용', ...], bar [이름, 담당, 걸리는 ms]. 'fill'은 그때까지 나온 진행 막대를 동시에 채운다.
+const DEMOS = {
+  '/setup': { input: '/setup 로그인 기능 개발', scenes: [
+    ['세션 3개 만들기',
+      ['row', '[작업] 로그인 기능 개발', 'Opus 5.5 · high', '새로'],
+      ['row', '[질문] 로그인 기능 개발', 'Sonnet 5.5 · medium', '새로'],
+      ['row', '[테스트] 로그인 기능 개발', 'Sonnet 5.5 · medium', '새로']],
+    ['세션마다 범위 확인', ['say', '각 세션이 "준비됐습니다 — [역할] · 로그인 기능 개발" 한 줄로 답합니다.']]] },
+  '/card': { input: '/card 로그인 화면에 비밀번호 보기 버튼', scenes: [
+    ['작업 카드 쓰기',
+      ['kv', '목표', '비밀번호를 눌러서 볼 수 있다'],
+      ['kv', '범위', '로그인 폼만 / 회원가입 폼은 제외'],
+      ['kv', '순서', 'PR 1개'],
+      ['kv', '완료 조건', 'npm test 통과, 버튼으로 표시 전환'],
+      ['kv', '위험', '없음']],
+    ['구현은 하지 않음', ['say', '넘기려면 /handoff를 입력하세요.']]] },
+  '/handoff': { input: '/handoff 비밀번호 보기 버튼 추가', scenes: [
+    ['할 일에 맞는 세션 고르기', ['say', '코드 수정이라 [작업] 로그인 기능 개발 세션에 보냈습니다. 끝나면 여기로 알림이 옵니다.']],
+    ['받은 세션이 작업', ['bar', '[작업] 로그인 기능 개발', '작업 중', 2600], 'fill'],
+    ['끝나면 알림', ['note', '✅ 완료 · [작업] 로그인 기능 개발 · 비밀번호 보기',
+      '결과: PR #12를 만들었습니다', '확인: npm test 통과', '다음: 없음']]] },
+  '/parallel': { input: '/parallel', scenes: [
+    ['파일이 겹치지 않게 나누기',
+      ['bar', '단위 1 · 공통 폼', '이 세션', 2600], ['bar', '단위 2 · 비밀번호 보기', '하위 세션', 3400],
+      ['bar', '단위 3 · 오류 문구', '하위 세션', 2200], ['bar', '단위 4 · 소셜 로그인', '하위 세션', 3000]],
+    ['하위 세션이 동시에 구현', 'fill'],
+    ['한 브랜치로 합쳐 PR 하나', ['chips', ['feat/login'], ['← 단위 1·2·3·4 합치기 →', 'plain'], ['PR #12 ✅', 'ok']]]] },
+  '/qa': { input: '/qa 12', scenes: [
+    ['완료 조건 실행',
+      ['row', 'npm test', '24개 통과', '✅'],
+      ['row', '버튼으로 표시 전환', '스토리북에서 확인', '✅'],
+      ['row', '모바일 폭 390px', '브라우저가 없어 못 함', '⏭']],
+    ['넘겨받은 일이면 알림', ['note', '⚠️ 중단 · [테스트] 로그인 기능 개발 · PR 12 검증',
+      '원인: 모바일 폭 확인을 실행하지 못함', '필요한 조치: 브라우저에서 직접 확인']]] },
+  '/progress': { input: '/progress', scenes: [
+    ['세션 상태 보기',
+      ['row', '[작업] 로그인 기능 개발', '비밀번호 보기 구현 중', '🟢'],
+      ['row', '[테스트] 로그인 기능 개발', 'PR 12 기다리는 중', '⏳'],
+      ['row', '[질문] 로그인 기능 개발', '답이 필요한 질문 있음', '❓']],
+    ['답이 필요한 질문', ['say', '[질문] 로그인 기능 개발: 소셜 로그인에 Apple도 넣을까요?']]] },
+  '/sessions': { input: '/sessions', scenes: [
+    ['T3 밖 세션 찾기',
+      ['row', 'VS Code · Claude', '로그인 오류 고치기', '방금'],
+      ['row', '터미널 · Codex', '테스트 정리', '2시간 전']],
+    ['이어서 하는 명령', ['code', 'claude --resume 3f2a9c…'], ['code', 'codex resume 8b1e47…']]] },
+  '/commit': { input: '/commit 비밀번호 보기 버튼', scenes: [
+    ['이번 작업 파일만 고르기',
+      ['row', 'login-form.tsx', '+24 −3', '✓'],
+      ['row', 'login-form.test.tsx', '+18', '✓'],
+      ['row', '.env', '비밀 값이라 제외', '✕']],
+    ['커밋', ['chips', ['a1b2c3d'], ['비밀번호 보기 버튼 추가', 'plain']], ['say', '푸시는 하지 않았습니다.']]] },
+  '/pr': { input: '/pr', scenes: [
+    ['푸시하고 PR 만들기', ['chips', ['feat/login'], ['→', 'plain'], ['PR #12', 'ok']]],
+    ['PR 감시와 대응',
+      ['row', 'CI 체크', '통과', '✅'],
+      ['row', '리뷰 코멘트', '1개 반영', '✅']]] },
+  '/merge': { input: '/merge 12', scenes: [
+    ['체크·리뷰·충돌 확인',
+      ['row', '체크', '모두 통과', '✅'],
+      ['row', '리뷰', '승인', '✅'],
+      ['row', '충돌', '없음', '✅']],
+    ['머지', ['chips', ['PR #12 머지됨', 'ok']], ['say', 'PR 감시를 껐습니다.']]] },
+  '/code-review': { input: '/code-review', scenes: [
+    ['변경 검토',
+      ['row', 'login-form.tsx:42', '빈 비밀번호에도 버튼이 켜짐', '⚠️'],
+      ['row', 'login-form.tsx:58', '버튼에 aria-label 없음', '⚠️']],
+    ['결과', ['say', '문제 2개를 찾았습니다. 고치려면 --fix를 붙여 실행합니다.']]] },
+  '/note': { input: '/note 비밀번호 보기 버튼', scenes: [
+    ['vault 규칙 확인', ['say', 'vault의 노트 작성 규칙을 읽었습니다.']],
+    ['노트 저장', ['chips', ['학습 노트 1개 저장', 'ok']], ['say', '저장소에는 노트 내용과 경로를 넣지 않습니다.']]] },
+  '/minutes': { input: '/minutes 주간 회의', scenes: [
+    ['vault 양식 읽기', ['say', 'vault의 작성 규칙과 회의록 템플릿을 읽었습니다.']],
+    ['transcript 정리',
+      ['kv', '결정', '2개'],
+      ['kv', '할 일', '3개 · 기한 1개 미확인'],
+      ['kv', '참석자', '화자 1·2 (이름 미확인)']],
+    ['저장', ['chips', ['docs/회의록/2026-11-27_주간_회의.md', 'ok']]]] },
+  '/close': { input: '/close', scenes: [
+    ['남은 일 확인',
+      ['row', '실행 중인 하위 작업', '없음', '✅'],
+      ['row', '처리 안 한 요청', '없음', '✅']],
+    ['보관', ['say', '이 세션을 보관했습니다.']]] },
+  '/obsidian': { input: '/obsidian', scenes: [
+    ['분류 고르기', ['say', '어느 영역에 연결할까요? 1. 개인 2. 회사 3. 연구']],
+    ['연결',
+      ['row', 'docs/회의록/', '새로 만듦', '✅'],
+      ['row', 'vault 프로젝트 링크', 'new-app_docs', '✅'],
+      ['row', 'CLAUDE.local.md', 'Obsidian 연동 절 추가', '✅']],
+    ['적용', ['say', '새 세션부터 vault 규칙을 따릅니다. 열린 세션은 /refresh로 다시 읽습니다.']]] },
+  '/eco': { input: '/eco', scenes: [
+    ['effort 낮추기', ['chips', ['effort high'], ['→', 'plain'], ['low', 'ok']]],
+    ['절약 규칙 적용', ['say', '모델은 그대로 두고 탐색·출력·위임을 줄입니다. /eco off로 되돌립니다.']]] },
+  '/drive-reauth': { input: '/drive-reauth', scenes: [
+    ['로그인 안내', ['say', '이 Mac 브라우저에서 Google 로그인 → Drive 권한 승인'], ['say', '🔔 할 일: 브라우저에서 권한 승인']],
+    ['동기화 확인',
+      ['row', 'created', '새 노트 2개', '✅'],
+      ['row', 'duplicate', '이미 있음 1개', '']]] },
+  '할 일 알림': { label: '응답 마지막 줄', input: '🔔 할 일: PR 12 머지 여부 결정', scenes: [
+    ['알림 보내기',
+      ['row', 'Mac 알림', '소리와 함께', '🔔'],
+      ['row', '휴대폰 (ntfy)', '프로젝트 이름은 빼고', '📱']]] }
+};
+let demoTimers = [];
+function stopDemo() { demoTimers.forEach(clearTimeout); demoTimers = []; }
+function demoLine([kind, ...a]) {
+  if (kind === 'row') return `<div class="d-row appear"><span>${esc(a[0])}</span><span class="d-muted">${esc(a[1])}</span><span class="d-status">${esc(a[2] || '')}</span></div>`;
+  if (kind === 'kv') return `<div class="d-kv appear"><span class="d-muted">${esc(a[0])}</span><span>${esc(a[1])}</span></div>`;
+  if (kind === 'say') return `<div class="appear">${esc(a[0])}</div>`;
+  if (kind === 'code') return `<div class="d-code appear">${esc(a[0])}</div>`;
+  if (kind === 'chips') return '<div class="d-chips appear">' + a.map(([text, style]) => style === 'plain'
+    ? `<span>${esc(text)}</span>` : `<span class="chip${style === 'ok' ? ' pr' : ''}">${esc(text)}</span>`).join('') + '</div>';
+  if (kind === 'note') return `<div class="d-note appear"><b>${esc(a[0])}</b><ul>` + a.slice(1).map(line => {
+    const cut = line.indexOf(': ');
+    return `<li><b>${esc(line.slice(0, cut))}</b>: ${esc(line.slice(cut + 2))}</li>`;
+  }).join('') + '</ul></div>';
+  if (kind === 'bar') return `<div class="unit appear"><span>${esc(a[0])}</span><span class="tag${a[1] === '이 세션' ? ' me' : ''}">${esc(a[1])}</span>` +
+    `<span class="bar" data-ms="${a[2]}"><i></i></span><span class="done">✅</span></div>`;
+  return '';
+}
+function playDemo(d, box, stepsEl) {
+  stopDemo();
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  box.innerHTML = `<div class="say"><span class="who">${esc(d.label || '입력')}</span><span class="typed"></span><span class="caret"></span></div>` +
+    '<div class="lines">' + d.scenes.map(([, ...lines]) => lines.filter(line => line !== 'fill').map(demoLine).join('')).join('') + '</div>';
+  stepsEl.innerHTML = d.scenes.map(([caption], i) => `<span>${'①②③④⑤'[i]} ${esc(caption)}</span>`).join('');
+  const steps = [...stepsEl.children], rows = [...box.querySelectorAll('.appear')], bars = [...box.querySelectorAll('.bar')];
+  const typed = box.querySelector('.typed'), caret = box.querySelector('.caret');
+  const finish = bar => bar.parentElement.querySelector('.done').classList.add('on');
+  if (reduce) {
+    typed.textContent = d.input; caret.remove(); rows.forEach(row => row.classList.add('on'));
+    bars.forEach(bar => { bar.firstChild.style.width = '100%'; finish(bar); });
+    steps.forEach(step => step.classList.add('on'));
+    return;
+  }
+  const at = (ms, fn) => demoTimers.push(setTimeout(fn, ms));
+  const chars = [...d.input];
+  chars.forEach((ch, i) => at(150 + i * 60, () => { typed.textContent += ch; }));
+  let t = 150 + chars.length * 60 + 350, next = 0;
+  at(t, () => caret.remove());
+  d.scenes.forEach(([, ...lines], n) => {
+    at(t, () => steps.forEach((step, i) => step.classList.toggle('on', i === n)));
+    for (const line of lines) {
+      if (line === 'fill') {
+        at(t, () => bars.forEach(bar => { bar.firstChild.style.transitionDuration = bar.dataset.ms + 'ms'; bar.firstChild.style.width = '100%'; }));
+        bars.forEach(bar => at(t + Number(bar.dataset.ms), () => finish(bar)));
+        t += Math.max(...bars.map(bar => Number(bar.dataset.ms))) + 400;
+      } else {
+        const row = rows[next++];
+        at(t, () => row.classList.add('on'));
+        t += 280;
+      }
+    }
+    t += 700;
+  });
+}
+
+let current = 0;
+function openItem(i) {
+  stopDemo();
+  current = i;
+  const it = ITEMS[i];
+  const badge = it.safety === 'safe' ? '<span class="badge safe">바로 시험해도 안전</span>'
+    : it.safety === 'care' ? '<span class="badge care">실제로 바뀜 · 주의</span>' : '<span class="badge">자동 규칙</span>';
+  const sec = (title, body) => body ? `<div class="sec"><h4>${title}</h4>${body}</div>` : '';
+  const examples = it.examples.map(([code, note]) =>
+    `<div class="ex"><code>${esc(code)}${note ? `<span class="note">${esc(note)}</span>` : ''}</code><button class="copy" data-copy="${esc(code)}">복사</button></div>`).join('');
+  const steps = it.test.length ? '<ol>' + it.test.map(s => `<li>${esc(s)}</li>`).join('') + '</ol>' : '';
+  document.getElementById('dialog').innerHTML =
+    `<header>${svg(it.icon)}<h3>${esc(it.cmd)}</h3>${badge}<button class="x" aria-label="닫기">×</button></header>` +
+    `<p class="summary">${esc(it.summary)}</p>` +
+    (DEMOS[it.cmd] ? '<div class="sec"><h4 class="demo-head"><span>실행하면 이렇게 보입니다</span><button class="replay">다시 보기</button></h4>' +
+      '<div class="demo"></div><div class="steps"></div></div>' : '') +
+    sec('언제 쓰나', it.when ? `<p>${esc(it.when)}</p>` : '') +
+    sec('입력 형식', it.usage ? `<p><code>${esc(it.usage)}</code></p>` : '') +
+    sec('예시 — 복사해서 입력창에 붙여 넣으세요', examples) +
+    sec('결과', it.result ? `<p>${esc(it.result)}</p>` : '') +
+    sec('시험해 보기', steps) +
+    (it.caution ? `<div class="care-box">⚠️ ${esc(it.caution)}</div>` : '') +
+    `<div class="nav"><button data-step="-1">← 이전</button><button data-step="1">다음 →</button></div>`;
+  const dialog = document.getElementById('dialog');
+  dialog.querySelector('.x').addEventListener('click', closeItem);
+  dialog.querySelectorAll('.copy').forEach(b => b.addEventListener('click', () => copyText(b)));
+  dialog.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', () =>
+    openItem((current + Number(b.dataset.step) + ITEMS.length) % ITEMS.length)));
+  document.getElementById('overlay').classList.add('open');
+  dialog.scrollTop = 0;
+  if (DEMOS[it.cmd]) {
+    const play = () => playDemo(DEMOS[it.cmd], dialog.querySelector('.demo'), dialog.querySelector('.steps'));
+    dialog.querySelector('.replay').addEventListener('click', play);
+    play();
+  }
+}
+function closeItem() { stopDemo(); document.getElementById('overlay').classList.remove('open'); }
+
+async function copyText(button) {
+  const text = button.dataset.copy;
+  let ok = false;
+  if (NATIVE) { window.webkit.messageHandlers.guide.postMessage({ type: 'copy', text }); ok = true; }
+  else try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {
+    const area = document.createElement('textarea');
+    area.value = text; document.body.appendChild(area); area.select();
+    try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+    area.remove();
+  }
+  if (!ok) {
+    const code = button.parentElement.querySelector('code');
+    const range = document.createRange(); range.selectNodeContents(code.firstChild);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  }
+  button.textContent = ok ? '복사됨' : '⌘C로 복사';
+  setTimeout(() => { button.textContent = '복사'; }, 1600);
+}
+
+document.getElementById('overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeItem(); });
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('overlay').classList.contains('open')) {
+    if (e.key === 'Escape' && NATIVE) window.webkit.messageHandlers.guide.postMessage({ type: 'close' });
+    return;
+  }
+  if (e.key === 'Escape') closeItem();
+  if (e.key === 'ArrowRight') openItem((current + 1) % ITEMS.length);
+  if (e.key === 'ArrowLeft') openItem((current - 1 + ITEMS.length) % ITEMS.length);
+});
+renderList();
+if (document.body.dataset.open) openItem(ITEMS.findIndex(it => it.cmd === document.body.dataset.open));
+</script>
+</body>
+</html>
