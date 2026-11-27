@@ -17,7 +17,7 @@ Claude 앱은 이 Mac에 접근하지 못합니다. T3 도구가 필요한 명�
 
 ## 알림
 
-[할 일 알림](../plugins/notify/README.md)이 질문, 승인 요청, 응답 마지막 줄의 `🔔 할 일:`, Drive 동기화 연속 실패를 이 Mac과 휴대폰으로 보냅니다.
+[할 일 알림](../plugins/notify/README.md)이 질문, 승인 요청, 응답 끝의 `🔔 할 일`, Drive 동기화 연속 실패를 이 Mac과 휴대폰으로 보냅니다.
 
 1. 휴대폰에 ntfy 앱을 설치합니다.
 2. 서버 `https://ntfy.sh`, 주제는 `~/.config/llm-plugin/notify.json`의 `ntfy_topic`으로 구독합니다.

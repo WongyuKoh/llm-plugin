@@ -24,7 +24,7 @@ T3 Code에서 Claude와 Codex가 함께 쓰는 작업 규칙(스킬), 슬래시 
 | `docs/dev-flow.md` | 개발 흐름 설계: 세션 구성, 모델, 작업 카드, 알림, 명령, 토큰 절약 모드 |
 | `docs/claude-skills.md` | 스킬 사용법, claude.ai 적용, Obsidian 연결 |
 | `docs/mobile.md` | 휴대폰에서 쓰기: T3 앱, Claude 앱, 알림 |
-| `plugins/notify/` | 질문·승인·할 일이 생기면 이 Mac(소리)과 휴대폰으로 알림 |
+| `plugins/notify/` | 질문·승인·할 일이 생기면 이 Mac(소리)과 휴대폰으로 알리고, 메뉴 막대 할 일 목록에 모음 |
 | `plugins/obsidian-note-inbox/` | Google Drive 폴더의 Markdown을 Obsidian 수집함으로 가져오는 수신기 |
 | `artifacts/claude-skills/` | claude.ai 업로드용 스킬 ZIP |
 
@@ -68,7 +68,7 @@ T3 Code에서 Claude와 Codex가 함께 쓰는 작업 규칙(스킬), 슬래시 
 
 ## 알림과 휴대폰
 
-질문, 승인 요청, 응답 마지막 줄의 `🔔 할 일:`, Drive 동기화 연속 실패를 이 Mac(소리)과 휴대폰(ntfy)으로 알립니다. 설치와 설정은 [할 일 알림](plugins/notify/README.md), 휴대폰에서 작업하는 방법은 [휴대폰에서 쓰기](docs/mobile.md)를 보세요.
+질문, 승인 요청, 응답 끝의 `🔔 할 일`(여러 개면 번호 목록), Drive 동기화 연속 실패를 이 Mac(소리)과 휴대폰(ntfy)으로 알립니다. 남은 할 일은 맥 메뉴 막대의 `🔔 할 일 N`에 모이고, 세션이 응답을 마치면 그 응답의 할 일로 바뀌고, `완료`를 누르면 바로 지워집니다. T3 세션의 할 일은 `알아서 진행`이나 `선택…`(선택지 모달)으로 그 세션에 맡길 수 있습니다. 설치와 설정은 [할 일 알림](plugins/notify/README.md), 휴대폰에서 작업하는 방법은 [휴대폰에서 쓰기](docs/mobile.md)를 보세요.
 
 ## 확인
 
