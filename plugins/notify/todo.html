@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>할 일</title>
+<!--
+  메뉴 막대 '🔔 할 일' 창의 내용. todo-menubar.js가 render({items})로 목록을 넣는다.
+  페이지는 webkit.messageHandlers.todo로 다음을 알린다.
+    done {id}            완료(목록에서 지우기)
+    act {id, choice?}    그 T3 세션에 맡기기('알아서 진행' 또는 모달에서 고른 선택)
+    open {thread}        T3에서 그 세션 열기(질문·승인은 T3 화면에서 답한다)
+    pin {on} · close · size {height} · ready · check {text}
+  브라우저로 열면(메시지 처리기가 없으면) 예시 목록을 보여 준다.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7; --card: #ffffff; --fg: #1d1d1f; --muted: #6e6e73; --border: #e2e2e6; --hover: #efeff2;
+    --question: #2563eb; --approval: #b45309; --action: #15803d; --alert: #dc2626;
+    --primary: #1d1d1f; --primary-fg: #ffffff; --chip: #f2f2f5; --rec: #15803d; --shade: rgba(0, 0, 0, 0.28);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --card: #262628; --fg: #f2f2f4; --muted: #9b9ba1; --border: #38383c; --hover: #313134;
+      --question: #60a5fa; --approval: #fbbf24; --action: #4ade80; --alert: #f87171;
+      --primary: #f2f2f4; --primary-fg: #1c1c1e; --chip: #303033; --rec: #4ade80; --shade: rgba(0, 0, 0, 0.5);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); }
+  body { font: 13px/1.45 -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif; -webkit-user-select: none; cursor: default; }
+  button { font: inherit; color: inherit; }
+  #root { padding: 10px 10px 0; }
+  #list { display: grid; gap: 10px; }
+  .group { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .group h2 { margin: 0; padding: 7px 8px 6px 12px; font-size: 12px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+  .group h2 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group h2 .where { margin-left: auto; flex: none; color: var(--muted); font-weight: 400; font-size: 11px; }
+  .open { flex: none; border: 0; background: none; color: var(--muted); font-size: 11px; padding: 2px 6px; border-radius: 5px; cursor: pointer; }
+  .open:hover { background: var(--hover); color: var(--fg); }
+  .item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 8px 10px 9px 12px; border-top: 1px solid var(--border); transition: opacity 0.18s ease, transform 0.18s ease; }
+  .item.leaving { opacity: 0; transform: translateX(14px); }
+  .num { min-width: 16px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .text { word-break: break-word; -webkit-user-select: text; cursor: text; }
+  .hint { margin-top: 3px; font-size: 12px; color: var(--muted); word-break: break-word; }
+  .hint b { color: var(--rec); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .chip { font-size: 11.5px; padding: 1px 7px; border-radius: 6px; background: var(--chip); border: 1px solid var(--border); }
+  .chip.rec { border-color: var(--rec); }
+  .chip.rec::after { content: ' · 추천'; color: var(--rec); }
+  .meta { display: flex; gap: 6px; align-items: center; margin-top: 4px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
+  .kind { font-size: 10.5px; font-weight: 600; padding: 0 6px; border-radius: 999px; border: 1px solid currentColor; line-height: 16px; }
+  .kind.question { color: var(--question); }
+  .kind.approval { color: var(--approval); }
+  .kind.action { color: var(--action); }
+  .kind.alert { color: var(--alert); }
+  .state.error { color: var(--alert); }
+  .actions { display: grid; gap: 4px; justify-items: stretch; }
+  .btn { font-size: 12px; padding: 2px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--hover); }
+  .btn:active { transform: translateY(1px); }
+  .btn.go { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+  .btn.go:hover { opacity: 0.88; background: var(--primary); }
+  .btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+  .empty { padding: 26px 16px; text-align: center; color: var(--muted); background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  .empty b { display: block; color: var(--fg); font-weight: 600; margin-bottom: 2px; }
+  footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 4px 10px; font-size: 11px; color: var(--muted); }
+  footer label { display: flex; gap: 4px; align-items: center; flex: none; cursor: pointer; }
+  footer input { margin: 0; }
+  /* 선택 모달 */
+  .shade { position: fixed; inset: 0; background: var(--shade); display: none; align-items: flex-start; justify-content: center; padding: 14px 12px; }
+  .shade.open { display: flex; }
+  .dialog { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 14px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
+  .dialog h3 { margin: 0 0 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .dialog .q { margin: 0 0 10px; font-size: 13.5px; font-weight: 600; word-break: break-word; }
+  .options { display: grid; gap: 6px; }
+  .option { display: flex; align-items: center; gap: 8px; text-align: left; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); cursor: pointer; }
+  .option:hover { background: var(--hover); }
+  .option.on { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+  .option .dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; }
+  .option.on .dot { border-color: var(--primary); background: radial-gradient(circle, var(--primary) 45%, transparent 50%); }
+  .option .rec { margin-left: auto; font-size: 11px; color: var(--rec); font-weight: 600; }
+  .dialog textarea { width: 100%; margin-top: 8px; min-height: 52px; resize: vertical; font: inherit; font-size: 12.5px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); -webkit-user-select: text; }
+  .dialog .row { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
+  .dialog .note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="list"></div>
+  <footer>
+    <span>세션이 응답을 마치면 그 응답의 할 일로 갱신됩니다.</span>
+    <label title="켜면 다른 곳을 눌러도 창이 닫히지 않습니다"><input type="checkbox" id="pin"> 고정</label>
+  </footer>
+</div>
+<div class="shade" id="shade">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dq">
+    <h3>선택해서 맡기기</h3>
+    <p class="q" id="dq"></p>
+    <div class="options" id="options"></div>
+    <textarea id="custom" placeholder="직접 입력(선택지 대신 보낼 내용)"></textarea>
+    <div class="note" id="dnote"></div>
+    <div class="row">
+      <button class="btn" type="button" id="cancel">취소</button>
+      <button class="btn go" type="button" id="send" disabled>보내기</button>
+    </div>
+  </div>
+</div>
+<script>
+const KIND = { question: '질문', approval: '승인', action: '할 일', alert: '확인' };
+const bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.todo;
+const leaving = new Map(); // 완료를 누른 항목 id → 누른 시각. 파일이 바뀌기 전에 다시 나타나지 않게 한다.
+const sending = new Map(); // 맡기기를 누른 항목 id → 누른 시각. 파일에 상태가 적히기 전까지 '보내는 중'으로 보인다.
+let items = [];
+let checkMode = false;
+let dialog = null; // { item, choice }
+
+function post(message) { if (bridge) bridge.postMessage(message); }
+function esc(text) {
+  return String(text == null ? '' : text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function ago(created) {
+  const s = Math.max(0, Date.now() / 1000 - (Number(created) || 0));
+  if (s < 60) return '방금';
+  if (s < 3600) return Math.floor(s / 60) + '분 전';
+  if (s < 86400) return Math.floor(s / 3600) + '시간 전';
+  return Math.floor(s / 86400) + '일 전';
+}
+function byId(id) { return items.find(item => item.id === id); }
+
+// 세션별로 묶고, 최근에 할 일이 생긴 세션부터 보여 준다. 세션이 없는 알림은 하나씩 따로 둔다.
+function groups(list) {
+  const map = new Map();
+  list.forEach(item => {
+    const key = item.session || 'item:' + item.id;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(item);
+  });
+  return [...map.values()].sort((a, b) =>
+    Math.max(...b.map(i => i.created || 0)) - Math.max(...a.map(i => i.created || 0)));
+}
+
+function stateOf(item) {
+  const clicked = sending.get(item.id);
+  if (item.state === 'sending' || (clicked && !(item.stateAt > clicked / 1000))) return { cls: '', text: '보내는 중…', busy: true };
+  if (item.state === 'sent') return { cls: '', text: '맡김 · ' + ago(item.stateAt) + (item.note ? ' · ' + item.note : ''), busy: false };
+  if (item.state === 'error') return { cls: 'error', text: item.note || '보내지 못했습니다.', busy: false };
+  return null;
+}
+
+// 항목의 주 버튼. T3 세션의 할 일만 맡길 수 있고, 질문·승인은 T3 화면에서 답한다.
+function primary(item, state) {
+  if (!item.thread) return '';
+  if (item.kind === 'question' || item.kind === 'approval') {
+    return `<button class="btn go" type="button" data-open="${esc(item.thread)}">T3에서 답하기</button>`;
+  }
+  const label = state && state.busy ? '보내는 중' : (item.choices && item.choices.length ? '선택…' : '알아서 진행');
+  const action = item.choices && item.choices.length ? 'choose' : 'auto';
+  const tip = action === 'auto' ? (item.recommend ? '추천대로 진행하라고 그 세션에 보냅니다' : '알아서 진행하라고 그 세션에 보냅니다') : '선택지를 골라 그 세션에 보냅니다';
+  return `<button class="btn go" type="button" data-act="${action}" data-id="${esc(item.id)}" title="${esc(tip)}"${state && state.busy ? ' disabled' : ''}>${label}</button>`;
+}
+
+function itemHtml(item, index, count) {
+  const state = stateOf(item);
+  const chips = (item.choices || []).map(choice =>
+    `<span class="chip${choice.recommended ? ' rec' : ''}">${esc(choice.label)}</span>`).join('');
+  return `
+    <div class="item" data-id="${esc(item.id)}">
+      <span class="num">${count > 1 ? (index + 1) + '.' : ''}</span>
+      <div>
+        <div class="text">${esc(item.text)}</div>
+        ${item.recommend ? `<div class="hint"><b>추천</b> ${esc(item.recommend)}</div>` : ''}
+        ${chips ? `<div class="chips">${chips}</div>` : ''}
+        <div class="meta"><span class="kind ${esc(item.kind)}">${esc(KIND[item.kind] || '할 일')}</span><span>${ago(item.created)}</span>
+          ${state ? `<span class="state ${state.cls}">${esc(state.text)}</span>` : ''}</div>
+      </div>
+      <div class="actions">${primary(item, state)}<button class="btn" type="button" data-done="${esc(item.id)}">완료</button></div>
+    </div>`;
+}
+
+function measure() {
+  const root = document.getElementById('root');
+  let height = Math.ceil(root.getBoundingClientRect().height);
+  if (dialog) height = Math.max(height, Math.ceil(document.querySelector('.dialog').getBoundingClientRect().height) + 28);
+  return height;
+}
+
+function draw() {
+  const now = Date.now();
+  for (const [id, at] of leaving) if (now - at > 5000) leaving.delete(id);
+  for (const [id, at] of sending) if (now - at > 120000) sending.delete(id);
+  const visible = items.filter(item => !leaving.has(item.id));
+  const list = document.getElementById('list');
+  if (!visible.length) {
+    list.innerHTML = '<div class="empty"><b>할 일이 없습니다</b>새 할 일이 생기면 여기에 바로 나타납니다.</div>';
+  } else {
+    list.innerHTML = groups(visible).map(group => {
+      const first = group[0];
+      const name = first.title || first.project || (first.session ? '이름 없는 세션' : '세션 밖 알림');
+      const where = [first.title ? first.project : '', first.agent].filter(Boolean).join(' · ');
+      const open = first.thread ? `<button class="open" type="button" data-open="${esc(first.thread)}" title="T3에서 이 세션 열기">열기 ↗</button>` : '';
+      return `<section class="group"><h2><span class="name">${esc(name)}</span>`
+        + (where ? `<span class="where">${esc(where)}</span>` : '') + open + `</h2>`
+        + group.map((item, index) => itemHtml(item, index, group.length)).join('') + `</section>`;
+    }).join('');
+  }
+  if (dialog && !byId(dialog.item.id)) closeDialog(); // 세션에서 답해 항목이 사라지면 모달도 닫는다
+  post({ type: 'size', height: measure() });
+  if (checkMode) post({ type: 'check', text: 'items=' + document.querySelectorAll('.item').length
+    + ' groups=' + document.querySelectorAll('.group').length
+    + ' buttons=' + document.querySelectorAll('[data-act],[data-open]').length
+    + ' height=' + measure() + 'px' });
+}
+
+// todo-menubar.js가 부른다.
+function render(data) {
+  items = Array.isArray(data && data.items) ? data.items : [];
+  checkMode = Boolean(data && data.check);
+  document.getElementById('pin').checked = Boolean(data && data.pinned);
+  // 누른 뒤에 적힌 결과(맡김·오류)가 오면 '보내는 중' 표시를 끝낸다.
+  for (const [id, at] of sending) {
+    const item = byId(id);
+    if (!item || ((item.state === 'sent' || item.state === 'error') && item.stateAt > at / 1000)) sending.delete(id);
+  }
+  draw();
+}
+
+function act(id, choice) {
+  sending.set(id, Date.now());
+  post(choice ? { type: 'act', id, choice } : { type: 'act', id });
+  draw();
+}
+
+function openDialog(item) {
+  const recommended = (item.choices || []).find(choice => choice.recommended);
+  dialog = { item, choice: recommended ? recommended.label : '' };
+  document.getElementById('dq').textContent = item.text;
+  document.getElementById('custom').value = '';
+  document.getElementById('dnote').textContent = item.title ? '보낼 곳: ' + item.title : '';
+  const ordered = [...item.choices].sort((a, b) => Number(b.recommended) - Number(a.recommended));
+  document.getElementById('options').innerHTML = ordered.map(choice =>
+    `<button class="option" type="button" data-choice="${esc(choice.label)}"><span class="dot"></span><span>${esc(choice.label)}</span>`
+    + (choice.recommended ? '<span class="rec">추천</span>' : '') + '</button>').join('');
+  document.getElementById('shade').classList.add('open');
+  syncDialog();
+  post({ type: 'size', height: measure() });
+}
+function syncDialog() {
+  if (!dialog) return;
+  const custom = document.getElementById('custom').value.trim();
+  document.querySelectorAll('.option').forEach(el => el.classList.toggle('on', !custom && el.dataset.choice === dialog.choice));
+  document.getElementById('send').disabled = !(custom || dialog.choice);
+}
+function closeDialog() {
+  dialog = null;
+  document.getElementById('shade').classList.remove('open');
+  post({ type: 'size', height: measure() });
+}
+
+document.addEventListener('click', event => {
+  const target = event.target.closest('button');
+  if (!target) return;
+  if (target.dataset.done) {
+    const id = target.dataset.done;
+    leaving.set(id, Date.now());
+    target.closest('.item').classList.add('leaving');
+    post({ type: 'done', id });
+    setTimeout(draw, 180);
+  } else if (target.dataset.act) {
+    const item = byId(target.dataset.id);
+    if (!item) return;
+    if (target.dataset.act === 'choose') openDialog(item);
+    else act(item.id);
+  } else if (target.dataset.open) {
+    post({ type: 'open', thread: target.dataset.open });
+  } else if (target.dataset.choice !== undefined) {
+    dialog.choice = target.dataset.choice;
+    document.getElementById('custom').value = '';
+    syncDialog();
+  } else if (target.id === 'cancel') {
+    closeDialog();
+  } else if (target.id === 'send' && dialog) {
+    const choice = document.getElementById('custom').value.trim() || dialog.choice;
+    const id = dialog.item.id;
+    closeDialog();
+    if (choice) act(id, choice);
+  }
+});
+document.getElementById('shade').addEventListener('click', event => { if (event.target.id === 'shade') closeDialog(); });
+document.getElementById('custom').addEventListener('input', syncDialog);
+document.getElementById('pin').addEventListener('change', event => post({ type: 'pin', on: event.target.checked }));
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  if (dialog) closeDialog();
+  else post({ type: 'close' });
+});
+setInterval(draw, 30000); // 'n분 전' 갱신
+
+if (bridge) {
+  post({ type: 'ready' });
+} else {
+  const t = Date.now() / 1000;
+  render({ items: [
+    { id: 'a', kind: 'question', text: '배포 전에 스테이징에서 먼저 확인할까요?', session: 's1', thread: 't1', title: '[작업] 로그인 기능', project: 'shop', agent: 'Claude', created: t - 40,
+      choices: [{ label: '스테이징 먼저', recommended: false }, { label: '바로 배포', recommended: false }] },
+    { id: 'b', kind: 'action', text: 'PR 12 머지 방식 정하기', session: 's2', thread: 't2', title: '스킬 할 일 목록 개선', project: 'llm-plugin', agent: 'Claude', created: t - 600,
+      choices: [{ label: 'squash', recommended: true }, { label: 'rebase', recommended: false }] },
+    { id: 'c', kind: 'action', text: '실패한 테스트 고치기', recommend: '타임아웃을 30초로 늘려 다시 실행', session: 's2', thread: 't2', title: '스킬 할 일 목록 개선', project: 'llm-plugin', agent: 'Claude', created: t - 600 },
+    { id: 'd', kind: 'action', text: 'T3를 완전히 끄고 다시 열기', session: 's2', thread: 't2', title: '스킬 할 일 목록 개선', project: 'llm-plugin', agent: 'Claude', created: t - 600, state: 'sent', stateAt: t - 30 },
+    { id: 'e', kind: 'alert', text: 'Drive 동기화가 30분 넘게 실패하고 있습니다.', created: t - 7200 }
+  ] });
+}
+</script>
+</body>
+</html>
